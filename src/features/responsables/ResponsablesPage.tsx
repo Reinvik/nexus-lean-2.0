@@ -187,12 +187,12 @@ export const ResponsablesPage: React.FC = () => {
         applyFilter(
           supabase
             .from('quick_wins')
-            .select('id, responsible, status, title, description, impact, created_at, close_date, updated_at, company_id')
+            .select('id, responsible, status, title, description, impact, created_at, completed_at, date, deadline, company_id')
         ),
         applyFilter(
           supabase
             .from('a3_projects')
-            .select('id, responsible, status, title, action_plan, created_at, close_date, updated_at, company_id')
+            .select('id, responsible, status, title, action_plan, created_at, date, company_id')
         ),
         applyFilter(
           supabase
@@ -369,8 +369,8 @@ export const ResponsablesPage: React.FC = () => {
         const inProgress = ['in_progress', 'en proceso', 'ejecucion'].includes((w.status || '').toLowerCase());
         const taskStatus = isClosed ? 'completed' : inProgress ? 'in_progress' : 'pending';
 
-        const createdWeek = getISOWeekInfo(w.created_at);
-        const closedDate = w.close_date || (isClosed ? w.updated_at || w.created_at : undefined);
+        const createdWeek = getISOWeekInfo(w.created_at || w.date);
+        const closedDate = w.completed_at || (isClosed ? w.date || w.created_at : undefined);
         const closedWeek = closedDate ? getISOWeekInfo(closedDate) : undefined;
 
         const item: TaskItem = {
@@ -379,7 +379,7 @@ export const ResponsablesPage: React.FC = () => {
           title: w.title || 'Mejora Rápida',
           status: taskStatus,
           rawStatus: w.status || 'Propuesta',
-          createdAt: w.created_at,
+          createdAt: w.created_at || w.date,
           closeDate: closedDate,
           link: `/quick-wins`,
           extra: w.impact ? `Impacto ${w.impact}` : undefined,
@@ -398,7 +398,7 @@ export const ResponsablesPage: React.FC = () => {
           title: w.title,
           description: w.description,
           status: w.status,
-          date: w.created_at,
+          date: w.created_at || w.date,
         });
 
         if (isClosed) {
@@ -430,8 +430,8 @@ export const ResponsablesPage: React.FC = () => {
             const inProgress = ['in_progress', 'en proceso'].includes((a.status || '').toLowerCase());
             const taskStatus = isClosed ? 'completed' : inProgress ? 'in_progress' : 'pending';
 
-            const createdWeek = getISOWeekInfo(a.created_at);
-            const closedDate = a.close_date || (isClosed ? a.updated_at || a.created_at : undefined);
+            const createdWeek = getISOWeekInfo(a.created_at || a.date);
+            const closedDate = isClosed ? a.date || a.created_at : undefined;
             const closedWeek = closedDate ? getISOWeekInfo(closedDate) : undefined;
 
             const item: TaskItem = {
@@ -491,9 +491,9 @@ export const ResponsablesPage: React.FC = () => {
 
             const isDone = ['done', 'completada', 'cerrada', 'ok'].includes((act.status || '').toLowerCase());
             const taskStatus = isDone ? 'completed' : 'pending';
-            const actionDate = act.created_at || a.created_at;
+            const actionDate = act.created_at || act.date || a.created_at || a.date;
             const createdWeek = getISOWeekInfo(actionDate);
-            const closedDate = act.completed_at || (isDone ? a.updated_at || actionDate : undefined);
+            const closedDate = act.completed_at || act.solutionDate || (isDone ? actionDate : undefined);
             const closedWeek = closedDate ? getISOWeekInfo(closedDate) : undefined;
 
             const item: TaskItem = {
