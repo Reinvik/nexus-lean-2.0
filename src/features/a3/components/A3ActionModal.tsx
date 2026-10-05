@@ -497,20 +497,26 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
           </div>
 
           {/* Modal Footer Controls */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
-            >
-              <span>{actionToEdit ? 'Guardar Cambios' : 'Crear Acción 5W2H'}</span>
-            </button>
+          <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-200">
+            <span className="text-[11px] font-medium text-emerald-600 flex items-center gap-1.5">
+              <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+              <span>Se guardará automáticamente en el A3</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+              >
+                <span>{actionToEdit ? 'Guardar Cambios' : 'Crear Acción 5W2H'}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

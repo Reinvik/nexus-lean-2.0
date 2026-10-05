@@ -58,7 +58,25 @@ export const A3Page: React.FC = () => {
   const [selectedA3, setSelectedA3] = useState<A3Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+
+  // Refs for auto-saving
+  const selectedA3Ref = useRef<A3Project | null>(null);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    selectedA3Ref.current = selectedA3;
+  }, [selectedA3]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Filter & Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -272,8 +290,21 @@ export const A3Page: React.FC = () => {
     return { total, completed, inProgress, newCount, avgProgress };
   }, [a3Projects]);
 
+  // Helper to select project and clear pending auto-save timers
+  const handleSelectProject = (project: A3Project | null) => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    setSelectedA3(project);
+    selectedA3Ref.current = project;
+    setLastSavedAt(null);
+  };
+
   // Create New A3
   const handleNewA3 = () => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
     const newProj: A3Project = {
       id: '',
       company_id: targetCompanyId || (user?.company_id ?? null),
@@ -305,66 +336,243 @@ export const A3Page: React.FC = () => {
       actionPlan: [],
     };
     setSelectedA3(newProj);
+    selectedA3Ref.current = newProj;
+    setLastSavedAt(null);
     setActiveTab('context');
     setIsBoardMode(false);
   };
 
-  // Save Project to Supabase
+  // Auto-Save Action Plan directly to Supabase immediately
+  const handleActionPlanChange = async (acts: A3ActionPlanItem[]) => {
+    const current = selectedA3Ref.current || selectedA3;
+    if (!current) return;
+
+    // 1. Immediately update React state for UI responsiveness
+    const updatedA3: A3Project = {
+      ...current,
+      actionPlan: acts,
+      action_plan: acts,
+    };
+    selectedA3Ref.current = updatedA3;
+    setSelectedA3(updatedA3);
+
+    if (current.id) {
+      setA3Projects((prev) =>
+        prev.map((p) => (p.id === current.id ? { ...p, actionPlan: acts, action_plan: acts } : p))
+      );
+    }
+
+    // 2. Persist to Supabase
+    setIsAutoSaving(true);
+    try {
+      if (current.id) {
+        const { error } = await supabase
+          .from('a3_projects')
+          .update({ action_plan: acts })
+          .eq('id', current.id);
+
+        if (error) throw error;
+        setLastSavedAt(new Date());
+        toast.success('Plan de acción guardado automáticamente', { id: 'a3-autosave' });
+      } else {
+        // New project: auto-create the project record so the action plan is safely stored!
+        const resolvedCompanyId =
+          current.company_id || current.companyId || targetCompanyId || user?.company_id || null;
+
+        const titleToSave = current.title?.trim() || 'Nuevo Proyecto A3';
+
+        let serializedCountermeasures = current.countermeasures || '';
+        if (Array.isArray(current.countermeasureList)) {
+          try {
+            serializedCountermeasures = JSON.stringify({
+              list: current.countermeasureList,
+              freeText: current.countermeasures || '',
+            });
+          } catch (e) {
+            serializedCountermeasures = current.countermeasures || '';
+          }
+        }
+
+        const payload: any = {
+          title: titleToSave,
+          status: current.status || 'Nuevo',
+          date: current.date || new Date().toISOString().split('T')[0],
+          responsible: current.responsible || user?.name || '',
+          background: current.background || '',
+          background_image_url: current.backgroundImageUrl || current.background_image_url || null,
+          current_condition: current.currentCondition || current.current_condition || '',
+          current_condition_image_url: current.currentConditionImageUrl || current.current_condition_image_url || null,
+          goal: current.goal || '',
+          root_cause: current.rootCause || current.root_cause || '',
+          pareto_data: current.paretoData || current.pareto_data || [],
+          countermeasures: serializedCountermeasures,
+          execution_plan: current.plan || current.execution_plan || '',
+          follow_up_notes: current.followUp || current.follow_up_notes || '',
+          ishikawas: current.ishikawas || [],
+          five_whys: current.multipleFiveWhys || current.five_whys || [],
+          follow_up_data: current.followUpData || current.follow_up_data || [],
+          action_plan: acts,
+          company_id: resolvedCompanyId,
+        };
+
+        const { data, error } = await supabase
+          .from('a3_projects')
+          .insert([payload])
+          .select();
+
+        if (error) throw error;
+        if (data && data[0]) {
+          const createdProj: A3Project = {
+            ...updatedA3,
+            id: data[0].id,
+            title: titleToSave,
+          };
+          selectedA3Ref.current = createdProj;
+          setSelectedA3(createdProj);
+          setA3Projects((prev) => [createdProj, ...prev]);
+        }
+        setLastSavedAt(new Date());
+        toast.success('Proyecto y plan de acción guardados automáticamente', { id: 'a3-autosave' });
+      }
+    } catch (err: any) {
+      console.error('Error auto-saving action plan:', err);
+      toast.error('Error al guardar plan de acción: ' + (err.message || ''));
+    } finally {
+      setIsAutoSaving(false);
+    }
+  };
+
+  // Debounced auto-save for general A3 project edits (background, goal, root causes, etc.)
+  const debouncedSaveProject = useCallback(() => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      const proj = selectedA3Ref.current;
+      if (!proj || !proj.id) return;
+      if (!proj.title?.trim()) return;
+
+      setIsAutoSaving(true);
+      try {
+        const resolvedCompanyId =
+          proj.company_id || proj.companyId || targetCompanyId || user?.company_id || null;
+
+        let serializedCountermeasures = proj.countermeasures || '';
+        if (Array.isArray(proj.countermeasureList)) {
+          try {
+            serializedCountermeasures = JSON.stringify({
+              list: proj.countermeasureList,
+              freeText: proj.countermeasures || '',
+            });
+          } catch (e) {
+            serializedCountermeasures = proj.countermeasures || '';
+          }
+        }
+
+        const payload: any = {
+          title: proj.title,
+          status: proj.status,
+          date: proj.date,
+          responsible: proj.responsible,
+          background: proj.background,
+          background_image_url: proj.backgroundImageUrl || proj.background_image_url,
+          current_condition: proj.currentCondition || proj.current_condition,
+          current_condition_image_url:
+            proj.currentConditionImageUrl || proj.current_condition_image_url,
+          goal: proj.goal,
+          root_cause: proj.rootCause || proj.root_cause,
+          pareto_data: proj.paretoData || proj.pareto_data,
+          countermeasures: serializedCountermeasures,
+          execution_plan: proj.plan || proj.execution_plan,
+          follow_up_notes: proj.followUp || proj.follow_up_notes,
+          ishikawas: proj.ishikawas,
+          five_whys: proj.multipleFiveWhys || proj.five_whys,
+          follow_up_data: proj.followUpData || proj.follow_up_data,
+          action_plan: proj.actionPlan || proj.action_plan,
+          company_id: resolvedCompanyId,
+        };
+
+        const { error } = await supabase
+          .from('a3_projects')
+          .update(payload)
+          .eq('id', proj.id);
+
+        if (!error) {
+          setLastSavedAt(new Date());
+          setA3Projects((prev) =>
+            prev.map((p) => (p.id === proj.id ? { ...p, ...proj } : p))
+          );
+        }
+      } catch (err) {
+        console.error('Silent autosave error:', err);
+      } finally {
+        setIsAutoSaving(false);
+      }
+    }, 2000);
+  }, [targetCompanyId, user]);
+
+  // Save Project to Supabase manually
   const handleSaveProject = async () => {
-    if (!selectedA3) return;
-    if (!selectedA3.title.trim()) {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    const current = selectedA3Ref.current || selectedA3;
+    if (!current) return;
+    if (!current.title.trim()) {
       toast.error('El título del proyecto A3 es obligatorio.');
       return;
     }
 
     setIsSaving(true);
     const resolvedCompanyId =
-      selectedA3.company_id || selectedA3.companyId || targetCompanyId || user?.company_id || null;
+      current.company_id || current.companyId || targetCompanyId || user?.company_id || null;
 
-    let serializedCountermeasures = selectedA3.countermeasures || '';
-    if (Array.isArray(selectedA3.countermeasureList)) {
+    let serializedCountermeasures = current.countermeasures || '';
+    if (Array.isArray(current.countermeasureList)) {
       try {
         serializedCountermeasures = JSON.stringify({
-          list: selectedA3.countermeasureList,
-          freeText: selectedA3.countermeasures || '',
+          list: current.countermeasureList,
+          freeText: current.countermeasures || '',
         });
       } catch (e) {
-        serializedCountermeasures = selectedA3.countermeasures || '';
+        serializedCountermeasures = current.countermeasures || '';
       }
     }
 
     const payload: any = {
-      title: selectedA3.title,
-      status: selectedA3.status,
-      date: selectedA3.date,
-      responsible: selectedA3.responsible,
-      background: selectedA3.background,
-      background_image_url: selectedA3.backgroundImageUrl || selectedA3.background_image_url,
-      current_condition: selectedA3.currentCondition || selectedA3.current_condition,
+      title: current.title,
+      status: current.status,
+      date: current.date,
+      responsible: current.responsible,
+      background: current.background,
+      background_image_url: current.backgroundImageUrl || current.background_image_url,
+      current_condition: current.currentCondition || current.current_condition,
       current_condition_image_url:
-        selectedA3.currentConditionImageUrl || selectedA3.current_condition_image_url,
-      goal: selectedA3.goal,
-      root_cause: selectedA3.rootCause || selectedA3.root_cause,
-      pareto_data: selectedA3.paretoData || selectedA3.pareto_data,
+        current.currentConditionImageUrl || current.current_condition_image_url,
+      goal: current.goal,
+      root_cause: current.rootCause || current.root_cause,
+      pareto_data: current.paretoData || current.pareto_data,
       countermeasures: serializedCountermeasures,
-      execution_plan: selectedA3.plan || selectedA3.execution_plan,
-      follow_up_notes: selectedA3.followUp || selectedA3.follow_up_notes,
-      ishikawas: selectedA3.ishikawas,
-      five_whys: selectedA3.multipleFiveWhys || selectedA3.five_whys,
-      follow_up_data: selectedA3.followUpData || selectedA3.follow_up_data,
-      action_plan: selectedA3.actionPlan || selectedA3.action_plan,
+      execution_plan: current.plan || current.execution_plan,
+      follow_up_notes: current.followUp || current.follow_up_notes,
+      ishikawas: current.ishikawas,
+      five_whys: current.multipleFiveWhys || current.five_whys,
+      follow_up_data: current.followUpData || current.follow_up_data,
+      action_plan: current.actionPlan || current.action_plan,
       company_id: resolvedCompanyId,
     };
 
     try {
-      if (selectedA3.id) {
+      if (current.id) {
         // Update
         const { error } = await supabase
           .from('a3_projects')
           .update(payload)
-          .eq('id', selectedA3.id);
+          .eq('id', current.id);
 
         if (error) throw error;
+        setLastSavedAt(new Date());
         toast.success('Proyecto A3 actualizado correctamente');
       } else {
         // Insert
@@ -375,8 +583,11 @@ export const A3Page: React.FC = () => {
 
         if (error) throw error;
         if (data && data[0]) {
-          selectedA3.id = data[0].id;
+          current.id = data[0].id;
+          selectedA3Ref.current = { ...current, id: data[0].id };
+          setSelectedA3({ ...current, id: data[0].id });
         }
+        setLastSavedAt(new Date());
         toast.success('Proyecto A3 creado con éxito');
       }
 
@@ -402,7 +613,7 @@ export const A3Page: React.FC = () => {
       toast.success('Proyecto A3 eliminado');
       setA3Projects((prev) => prev.filter((p) => p.id !== id));
       if (selectedA3?.id === id) {
-        setSelectedA3(null);
+        handleSelectProject(null);
       }
     } catch (err: any) {
       console.error('Error deleting A3 project:', err);
@@ -412,18 +623,20 @@ export const A3Page: React.FC = () => {
 
   // Helpers to update selectedA3 fields
   const updateA3Field = (field: string, value: any) => {
+    if (field === 'actionPlan' || field === 'action_plan') {
+      handleActionPlanChange(value);
+      return;
+    }
+
     setSelectedA3((prev) => {
       if (!prev) return null;
-      return {
+      const updated = {
         ...prev,
         [field]: value,
         // Also sync aliases
         ...(field === 'background' ? { background: value } : {}),
         ...(field === 'currentCondition' ? { current_condition: value } : {}),
         ...(field === 'rootCause' ? { root_cause: value } : {}),
-        ...(field === 'actionPlan' || field === 'action_plan'
-          ? { actionPlan: value, action_plan: value }
-          : {}),
         ...(field === 'paretoData' || field === 'pareto_data'
           ? { paretoData: value, pareto_data: value }
           : {}),
@@ -434,7 +647,13 @@ export const A3Page: React.FC = () => {
           ? { followUpData: value, follow_up_data: value }
           : {}),
       };
+      selectedA3Ref.current = updated;
+      return updated;
     });
+
+    if (selectedA3Ref.current?.id) {
+      debouncedSaveProject();
+    }
   };
 
   // Memoized Follow-Up Charts list (Supporting multiple KPI charts per A3!)
@@ -482,14 +701,15 @@ export const A3Page: React.FC = () => {
 
   // Promote cause or countermeasure into 5W2H Action Plan
   const handlePromoteTo5W2H = (text: string, sourceCategory?: string) => {
-    if (!selectedA3) return;
-    const currentActions = (selectedA3.actionPlan || selectedA3.action_plan || []) as A3ActionPlanItem[];
+    const current = selectedA3Ref.current || selectedA3;
+    if (!current) return;
+    const currentActions = (current.actionPlan || current.action_plan || []) as A3ActionPlanItem[];
     const newAction: A3ActionPlanItem = {
       id: Date.now(),
       planId: 'main',
       what: `Implementar contramedida: ${text}`,
       why: sourceCategory ? `Causa identificada en ${sourceCategory}` : 'Neutralizar causa raíz detectada',
-      who: selectedA3.responsible || user?.name || '',
+      who: current.responsible || user?.name || '',
       when: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
       status: 'pending',
       progress: 0,
@@ -509,9 +729,9 @@ export const A3Page: React.FC = () => {
       countermeasures: [text],
     };
 
-    updateA3Field('actionPlan', [...currentActions, newAction]);
+    handleActionPlanChange([...currentActions, newAction]);
     setActiveTab('plan');
-    toast.success('¡Acción 5W2H generada! Se han añadido subtareas iniciales.');
+    toast.success('¡Acción 5W2H generada y guardada automáticamente!', { id: 'a3-autosave' });
   };
 
   return (
@@ -697,7 +917,7 @@ export const A3Page: React.FC = () => {
                       {/* Title */}
                       <h3
                         onClick={() => {
-                          setSelectedA3(project);
+                          handleSelectProject(project);
                           setActiveTab('context');
                         }}
                         className="text-base font-bold text-slate-800 leading-snug hover:text-brand-600 cursor-pointer line-clamp-2 transition-colors mb-2"
@@ -755,7 +975,7 @@ export const A3Page: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setSelectedA3(project);
+                            handleSelectProject(project);
                             setIsBoardMode(true);
                           }}
                           className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-lg transition-colors"
@@ -767,7 +987,7 @@ export const A3Page: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setSelectedA3(project);
+                            handleSelectProject(project);
                             setIsBoardMode(false);
                             setActiveTab('context');
                           }}
@@ -803,7 +1023,7 @@ export const A3Page: React.FC = () => {
             <div className="flex items-center gap-3 flex-1 min-w-[280px]">
               <button
                 type="button"
-                onClick={() => setSelectedA3(null)}
+                onClick={() => handleSelectProject(null)}
                 className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
                 title="Volver al tablero de proyectos"
               >
@@ -880,12 +1100,37 @@ export const A3Page: React.FC = () => {
                 {isFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
 
+              {/* Auto-save Status Indicator */}
+              <div
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs bg-slate-100/90 border border-slate-200 text-slate-600 shrink-0"
+                title={lastSavedAt ? `Último guardado: ${lastSavedAt.toLocaleTimeString()}` : 'Autoguardado activado'}
+              >
+                {isAutoSaving ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-[11px] font-semibold text-amber-700">Autoguardando...</span>
+                  </>
+                ) : lastSavedAt ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-[11px] font-semibold text-emerald-800">
+                      Guardado {lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span className="text-[11px] font-medium text-slate-500">Autoguardado</span>
+                  </>
+                )}
+              </div>
+
               {/* Save Button */}
               <button
                 type="button"
                 onClick={handleSaveProject}
-                disabled={isSaving}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all"
+                disabled={isSaving || isAutoSaving}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all shrink-0"
               >
                 <Save size={15} />
                 <span>{isSaving ? 'Guardando...' : 'Guardar A3'}</span>
@@ -1212,7 +1457,7 @@ export const A3Page: React.FC = () => {
                 <div className="animate-fadeIn">
                   <A3ActionPlan5W2H
                     actions={(selectedA3.actionPlan || selectedA3.action_plan || []) as A3ActionPlanItem[]}
-                    onChange={(acts) => updateA3Field('actionPlan', acts)}
+                    onChange={handleActionPlanChange}
                     users={profiles.map((p) => ({ name: p.full_name || p.email || 'Usuario', email: p.email || undefined }))}
                     countermeasures={(
                       selectedA3.countermeasureList ||
@@ -1221,6 +1466,8 @@ export const A3Page: React.FC = () => {
                     ).map((c) => c.title)}
                     plansMeta={selectedA3.actionPlansMeta}
                     onUpdatePlansMeta={(groups) => updateA3Field('actionPlansMeta', groups)}
+                    isSaving={isAutoSaving}
+                    lastSavedAt={lastSavedAt}
                   />
                 </div>
               )}

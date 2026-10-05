@@ -37,6 +37,8 @@ interface A3ActionPlan5W2HProps {
   countermeasures?: string[];
   plansMeta?: A3PlanGroup[];
   onUpdatePlansMeta?: (groups: A3PlanGroup[]) => void;
+  isSaving?: boolean;
+  lastSavedAt?: Date | null;
 }
 
 const DEFAULT_PLANS: A3PlanGroup[] = [
@@ -52,6 +54,8 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
   countermeasures = [],
   plansMeta,
   onUpdatePlansMeta,
+  isSaving = false,
+  lastSavedAt = null,
 }) => {
   // Plan groups state
   const planGroups = useMemo(() => {
@@ -484,18 +488,36 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
             </button>
           </div>
 
-          {/* Action Trigger Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setEditingAction(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all shrink-0"
-          >
-            <Plus size={16} />
-            <span>+ Nueva Acción 5W2H</span>
-          </button>
+          {/* Action Trigger & Auto-save Status */}
+          <div className="flex items-center gap-2 shrink-0">
+            {isSaving ? (
+              <span className="text-xs text-amber-600 font-semibold flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 rounded-xl border border-amber-200">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                Guardando plan...
+              </span>
+            ) : lastSavedAt ? (
+              <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 rounded-xl border border-emerald-200">
+                <CheckCircle2 size={13} className="text-emerald-600" />
+                Guardado autom. ({lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+              </span>
+            ) : (
+              <span className="text-xs text-slate-500 font-medium flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Autoguardado activo
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAction(null);
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all shrink-0"
+            >
+              <Plus size={16} />
+              <span>+ Nueva Acción 5W2H</span>
+            </button>
+          </div>
         </div>
       </div>
 
