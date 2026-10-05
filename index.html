@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/nexus-logo.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#050B14" />
+  <title>Nexus Lean 2.0</title>
+
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* Splash Screen Styles */
+    #splash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      background-color: #050B14;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.4s ease-out;
+    }
+
+    .splash-logo {
+      width: 110px;
+      height: 110px;
+      margin-bottom: 28px;
+      filter: drop-shadow(0 20px 25px rgba(6, 182, 212, 0.25));
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    .splash-spinner-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .splash-spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid #1e293b;
+      border-top-color: #06b6d4;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    .splash-text {
+      font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: rgba(6, 182, 212, 0.85);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.04);
+        opacity: 0.8;
+      }
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body style="background-color: #050B14; margin: 0; font-family: 'Inter', sans-serif;">
+  <!-- Splash Screen HTML -->
+  <div id="splash-overlay">
+    <img src="/nexus-logo.svg" alt="Nexus Lean 2.0" class="splash-logo" />
+    <div class="splash-spinner-container">
+      <div class="splash-spinner"></div>
+      <p class="splash-text">Nexus Lean 2.0</p>
+    </div>
+  </div>
+
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
