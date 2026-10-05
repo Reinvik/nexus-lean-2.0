@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { FiveSCard, Profile, Company } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { formatDateForInput } from '../../../lib/utils';
@@ -310,9 +311,9 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
   const cardCompanyName =
     companies.find((c) => c.id === (card?.company_id || card?.companyId))?.name || '';
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-3 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-0 md:p-3 animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -771,7 +772,8 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

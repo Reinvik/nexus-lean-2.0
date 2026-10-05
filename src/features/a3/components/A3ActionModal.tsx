@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Plus,
@@ -145,9 +146,17 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
         <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -185,7 +194,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
               <select
                 value={formData.planId || activePlanId}
                 onChange={(e) => setFormData({ ...formData, planId: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-none"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-brand-500 outline-none shadow-sm"
               >
                 {planGroups.map((g) => (
                   <option key={g.id} value={g.id}>
@@ -203,7 +212,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-none"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-brand-500 outline-none shadow-sm"
               >
                 <option value="pending">⏳ Pendiente</option>
                 <option value="in_progress">⚡ En Proceso</option>
@@ -230,7 +239,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                 value={formData.what}
                 onChange={(e) => setFormData({ ...formData, what: e.target.value })}
                 placeholder="Describe con claridad la acción concreta a ejecutar..."
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
               />
             </div>
 
@@ -252,7 +261,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                 value={formData.why || ''}
                 onChange={(e) => setFormData({ ...formData, why: e.target.value })}
                 placeholder="Justificación, causa raíz que neutraliza o impacto esperado..."
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none mb-1.5"
+                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none mb-1.5 shadow-sm"
               />
               {countermeasures.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -293,7 +302,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                     value={formData.who}
                     onChange={(e) => setFormData({ ...formData, who: e.target.value })}
                     placeholder="Responsable directo..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
                   />
                 ) : (
                   <input
@@ -302,7 +311,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                     value={formData.who}
                     onChange={(e) => setFormData({ ...formData, who: e.target.value })}
                     placeholder="Responsable directo..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
                   />
                 )}
                 <datalist id="users-list">
@@ -323,7 +332,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                   required
                   value={formData.when}
                   onChange={(e) => setFormData({ ...formData, when: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
                 />
               </div>
 
@@ -338,7 +347,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                   value={formData.where || ''}
                   onChange={(e) => setFormData({ ...formData, where: e.target.value })}
                   placeholder="Área, línea, puesto o máquina..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
                 />
               </div>
             </div>
@@ -361,7 +370,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                   value={formData.how || ''}
                   onChange={(e) => setFormData({ ...formData, how: e.target.value })}
                   placeholder="Procedimiento, estándar POE, herramientas o especificaciones técnicas..."
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
                 />
               </div>
 
@@ -376,7 +385,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                   value={formData.howMuch || ''}
                   onChange={(e) => setFormData({ ...formData, howMuch: e.target.value })}
                   placeholder="Ej: $150.000 CLP, 4 horas de mantenimiento o materiales..."
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
                 />
               </div>
             </div>
@@ -407,26 +416,26 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                     handleAddSubtask();
                   }
                 }}
-                className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-brand-500"
+                className="flex-1 px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm placeholder:text-slate-400"
               />
               <input
                 type="text"
                 placeholder="Responsable (opc)"
                 value={newSubtaskWho}
                 onChange={(e) => setNewSubtaskWho(e.target.value)}
-                className="w-32 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-32 px-2.5 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm placeholder:text-slate-400"
               />
               <input
                 type="date"
                 value={newSubtaskDate}
                 onChange={(e) => setNewSubtaskDate(e.target.value)}
-                className="w-32 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-32 px-2 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm"
               />
               <button
                 type="button"
                 onClick={() => handleAddSubtask()}
                 disabled={!newSubtaskTitle.trim()}
-                className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0"
+                className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 shadow-sm transition-colors"
               >
                 <Plus size={14} />
                 <span>Agregar</span>
@@ -443,9 +452,9 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                 formData.subtasks?.map((sub, idx) => (
                   <div
                     key={sub.id}
-                    className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs"
+                    className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs shadow-xs"
                   >
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
                       <input
                         type="checkbox"
                         checked={sub.completed}
@@ -455,28 +464,28 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                           );
                           setFormData({ ...formData, subtasks: updated });
                         }}
-                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer"
+                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer shrink-0"
                       />
                       <span
-                        className={`font-medium ${
-                          sub.completed ? 'line-through text-slate-400' : 'text-slate-700'
+                        className={`truncate ${
+                          sub.completed ? 'line-through text-slate-400 font-normal' : 'text-slate-900 font-bold'
                         }`}
                       >
                         {idx + 1}. {sub.title}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 shrink-0">
+                    <div className="flex items-center gap-2 text-[11px] text-slate-600 shrink-0 font-medium">
                       {sub.responsible && (
-                        <span className="bg-slate-100 px-1.5 py-0.5 rounded">{sub.responsible}</span>
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold border border-slate-200">{sub.responsible}</span>
                       )}
                       {sub.dueDate && (
-                        <span className="bg-slate-100 px-1.5 py-0.5 rounded">{sub.dueDate}</span>
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold border border-slate-200">{sub.dueDate}</span>
                       )}
                       <button
                         type="button"
                         onClick={() => handleRemoveSubtask(sub.id)}
-                        className="text-slate-400 hover:text-rose-500 p-1"
+                        className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -505,7 +514,8 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Maximize2,
@@ -209,9 +210,9 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
     isBottleneck: s.cycleTime > metrics.taktTimeSeconds,
   }));
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-3 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-0 md:p-3 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -701,6 +702,7 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
           }
         }}
       />
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Lightbulb, X, Zap, Upload, User, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { Profile } from '../../../types';
@@ -131,9 +132,9 @@ export const NewIdeaModal: React.FC<NewIdeaModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm flex justify-center items-center z-[100] p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -444,6 +445,7 @@ export const NewIdeaModal: React.FC<NewIdeaModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

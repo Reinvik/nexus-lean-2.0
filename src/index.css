@@ -35,6 +35,14 @@ body,
         background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0B1120 60%);
         background-attachment: fixed;
     }
+
+    /* Garantizar contraste nítido y texto oscuro para inputs/textareas en fondos claros */
+    input, textarea, select {
+        color: #0f172a;
+    }
+    input::placeholder, textarea::placeholder {
+        color: #64748b;
+    }
 }
 
 @layer components {

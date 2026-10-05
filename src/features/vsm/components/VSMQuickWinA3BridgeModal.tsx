@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Zap, FileText, X, Check, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
@@ -105,9 +106,9 @@ export const VSMQuickWinA3BridgeModal: React.FC<VSMQuickWinA3BridgeModalProps> =
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -254,6 +255,7 @@ export const VSMQuickWinA3BridgeModal: React.FC<VSMQuickWinA3BridgeModalProps> =
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

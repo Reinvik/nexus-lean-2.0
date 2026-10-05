@@ -945,13 +945,13 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
                                 handleQuickAddSubtask(action.id);
                               }
                             }}
-                            className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-brand-500"
+                            className="flex-1 px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm placeholder:text-slate-400"
                           />
                           <button
                             type="button"
                             onClick={() => handleQuickAddSubtask(action.id)}
                             disabled={!quickSubtaskInputs[action.id]?.trim()}
-                            className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0"
+                            className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 shadow-sm transition-colors"
                           >
                             <Plus size={14} />
                             <span>Añadir Subtarea</span>
@@ -971,33 +971,33 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
                                 className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border text-xs transition-colors ${
                                   sub.completed
                                     ? 'bg-slate-50/80 border-slate-200 text-slate-400'
-                                    : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50/50'
+                                    : 'bg-white border-slate-200 text-slate-900 hover:bg-slate-50/50 shadow-xs'
                                 }`}
                               >
-                                <div className="flex items-center gap-2.5 flex-1">
+                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                   <input
                                     type="checkbox"
                                     checked={sub.completed}
                                     onChange={() => handleToggleSubtask(action.id, sub.id)}
-                                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer"
+                                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer shrink-0"
                                   />
                                   <span
-                                    className={`font-semibold ${
-                                      sub.completed ? 'line-through text-slate-400' : 'text-slate-800'
+                                    className={`truncate ${
+                                      sub.completed ? 'line-through text-slate-400 font-normal' : 'text-slate-900 font-bold'
                                     }`}
                                   >
                                     {sIdx + 1}. {sub.title}
                                   </span>
                                 </div>
 
-                                <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                <div className="flex items-center gap-2 text-[11px] text-slate-600 shrink-0 font-medium">
                                   {sub.responsible && (
-                                    <span className="bg-slate-100 px-2 py-0.5 rounded font-medium">
+                                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold border border-slate-200">
                                       👤 {sub.responsible}
                                     </span>
                                   )}
                                   {sub.dueDate && (
-                                    <span className="bg-slate-100 px-2 py-0.5 rounded font-medium">
+                                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold border border-slate-200">
                                       📅 {sub.dueDate}
                                     </span>
                                   )}

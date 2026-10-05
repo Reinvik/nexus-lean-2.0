@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Edit,
@@ -130,9 +131,9 @@ export const DetailEditModal: React.FC<DetailEditModalProps> = ({
     ? ensureArray(draft.completion_image_urls || (draft.completion_image_url ? [draft.completion_image_url] : []))
     : ensureArray(win.completion_image_urls || (win.completion_image_url ? [win.completion_image_url] : []));
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm flex justify-center items-center z-[100] p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -674,6 +675,7 @@ export const DetailEditModal: React.FC<DetailEditModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

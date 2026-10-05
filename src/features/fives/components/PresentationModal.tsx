@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   BarChart as BarIcon,
@@ -53,8 +54,8 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="absolute top-4 right-4 z-20 flex gap-2">
         <button
           onClick={onClose}
@@ -334,7 +335,8 @@ export const PresentationModal: React.FC<PresentationModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

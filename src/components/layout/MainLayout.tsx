@@ -26,7 +26,7 @@ export const MainLayout: React.FC = () => {
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       {/* Main content area */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 transition-all duration-300 relative w-full">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 w-full">
         <Outlet />
       </main>
     </div>
