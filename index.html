@@ -84,6 +84,41 @@
       }
     }
   </style>
+
+  <script>
+    // Recuperación preventiva ante versiones obsoletas o módulos no encontrados
+    window.addEventListener('error', function (e) {
+      var msg = (e && (e.message || (e.error && e.error.message))) || '';
+      if (
+        msg.indexOf('dynamically imported module') !== -1 ||
+        msg.indexOf('Failed to fetch') !== -1 ||
+        msg.indexOf('ChunkLoadError') !== -1
+      ) {
+        var key = 'nexus_chunk_recovery';
+        var last = sessionStorage.getItem(key);
+        var now = Date.now();
+        if (!last || now - parseInt(last, 10) > 8000) {
+          sessionStorage.setItem(key, now.toString());
+          if ('caches' in window) {
+            caches.keys().then(function (names) {
+              return Promise.all(names.map(function (n) { return caches.delete(n); }));
+            }).finally(function () {
+              window.location.reload();
+            });
+          } else {
+            window.location.reload();
+          }
+        }
+      }
+    }, true);
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        console.log('[Nexus] Nuevo Service Worker activado. Sincronizando versión...');
+        window.location.reload();
+      });
+    }
+  </script>
 </head>
 
 <body style="background-color: #050B14; margin: 0; font-family: 'Inter', sans-serif;">

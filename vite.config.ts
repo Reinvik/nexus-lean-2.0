@@ -21,6 +21,12 @@ export default defineConfig({
       devOptions: {
         enabled: true,
       },
+      workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallbackDenylist: [/^\/api\//, /^\/assets\//],
+      },
       includeAssets: ['nexus-logo.svg', 'be-lean-logo.png', 'nexus-icon-32.svg', 'nexus-icon-64.svg'],
       manifest: {
         name: 'Nexus Lean 2.0',

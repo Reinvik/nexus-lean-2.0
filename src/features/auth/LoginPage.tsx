@@ -55,12 +55,17 @@ export const LoginPage: React.FC = () => {
     setError('');
     setIsLoggingIn(true);
     try {
-      const result = await login(email, password);
+      const cleanEmail = email.trim();
+      const result = await login(cleanEmail, password);
       if (!result || !result.success) {
-        setError(result?.message || 'Credenciales no reconocidas. Revisa tu estándar de acceso.');
+        if (result?.message?.includes('Invalid login credentials')) {
+          setError('Correo o contraseña incorrectos. Verifica tus datos de acceso.');
+        } else {
+          setError(result?.message || 'Credenciales no reconocidas. Revisa tu estándar de acceso.');
+        }
       } else {
         if (rememberMe) {
-          localStorage.setItem('saved_email', email);
+          localStorage.setItem('saved_email', cleanEmail);
           localStorage.setItem('saved_password', btoa(password));
         } else {
           localStorage.removeItem('saved_email');
