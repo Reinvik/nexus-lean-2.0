@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import MainLayout from './components/layout/MainLayout';
 import LoadingScreen from './components/common/LoadingScreen';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import { Toaster } from 'react-hot-toast';
 
 // Lazy Loaded Pages
@@ -58,7 +59,8 @@ export const App: React.FC = () => {
         }}
       />
       <BrowserRouter>
-        <Suspense fallback={<LoadingScreen message="Cargando estación..." />}>
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingScreen message="Cargando estación..." />}>
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
@@ -127,7 +129,8 @@ export const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>
-      </BrowserRouter>
+      </ErrorBoundary>
+    </BrowserRouter>
     </AuthProvider>
   );
 };
