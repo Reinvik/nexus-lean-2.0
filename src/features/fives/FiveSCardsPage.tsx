@@ -111,6 +111,15 @@ export const FiveSCardsPage: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
+      // Fetch profiles to map assigned_to -> responsible if needed
+      const { data: profData } = await supabase.from('profiles').select('id, full_name, email');
+      const profileMap = new Map<string, string>();
+      (profData || []).forEach((p: any) => {
+        if (p.id) {
+          profileMap.set(p.id, p.full_name?.trim() || p.email?.trim() || '');
+        }
+      });
+
       let query = supabase
         .from('five_s_cards')
         .select('*')
@@ -133,10 +142,17 @@ export const FiveSCardsPage: React.FC = () => {
         if (c.status === 'En Proceso' || c.status === 'En Progreso') color = '#f59e0b';
         if (c.status === 'Cerrado') color = '#10b981';
 
+        const responsibleName =
+          c.responsible?.trim() || (c.assigned_to ? profileMap.get(c.assigned_to) : '') || '';
+
         return {
           ...c,
+          responsible: responsibleName,
+          assigned_to: c.assigned_to || null,
           date: c.date || c.card_date || c.created_at,
+          card_date: c.card_date || c.date || c.created_at,
           cardNumber: c.card_number || c.cardNumber || '?',
+          card_number: c.card_number || c.cardNumber || '?',
           location: c.location || c.area || '',
           area: c.area || c.location || '',
           article: c.article || c.description || '',
@@ -194,8 +210,9 @@ export const FiveSCardsPage: React.FC = () => {
       .filter((n): n is string => Boolean(n && n.trim().length > 0));
     const userNames = users
       .map((u) => (u as any).name || u.full_name || u.email || '')
-      .filter(Boolean);
-    return [...new Set([...list, ...userNames])].sort();
+    return [...new Set([...list, ...userNames])].sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    );
   }, [cards, users]);
 
   const uniqueLocations = useMemo(() => {
@@ -388,6 +405,18 @@ export const FiveSCardsPage: React.FC = () => {
           ? globalFilterCompanyId
           : user?.company_id || user?.companyId || targetCompanyId;
 
+      // Find user UUID if not explicitly set
+      const assignedUser = users.find(
+        (u) =>
+          u.id === cardData.assigned_to ||
+          (u.full_name && u.full_name.trim().toLowerCase() === cardData.responsible?.trim().toLowerCase()) ||
+          ((u as any).name && (u as any).name.trim().toLowerCase() === cardData.responsible?.trim().toLowerCase()) ||
+          (u.email && u.email.trim().toLowerCase() === cardData.responsible?.trim().toLowerCase())
+      );
+      const finalAssignedTo = cardData.assigned_to || assignedUser?.id || null;
+      const finalResponsible = cardData.responsible || assignedUser?.full_name || (assignedUser as any)?.name || assignedUser?.email || null;
+      const finalDate = cardData.date || cardData.card_date || new Date().toISOString().split('T')[0];
+
       if (cardData.id) {
         // Update
         const { error } = await supabase
@@ -399,8 +428,8 @@ export const FiveSCardsPage: React.FC = () => {
             findings: cardData.reason || cardData.findings,
             status: cardData.status,
             category: cardData.category,
-            assigned_to: cardData.assigned_to,
-            responsible: cardData.responsible,
+            assigned_to: finalAssignedTo,
+            responsible: finalResponsible,
             due_date: cardData.targetDate || cardData.due_date,
             close_date: cardData.solutionDate || cardData.close_date,
             closure_comment: cardData.proposedAction || cardData.closure_comment,
@@ -408,7 +437,8 @@ export const FiveSCardsPage: React.FC = () => {
             image_url: cardData.image_urls?.[0] || null,
             after_image_urls: cardData.after_image_urls || [],
             after_image_url: cardData.after_image_urls?.[0] || null,
-            date: cardData.date,
+            date: finalDate,
+            card_date: finalDate,
             updated_at: new Date().toISOString(),
           })
           .eq('id', cardData.id);
@@ -424,8 +454,8 @@ export const FiveSCardsPage: React.FC = () => {
           findings: cardData.reason || cardData.findings,
           status: cardData.status || 'Abierto',
           category: cardData.category || 'Seiri',
-          assigned_to: cardData.assigned_to,
-          responsible: cardData.responsible,
+          assigned_to: finalAssignedTo,
+          responsible: finalResponsible,
           due_date: cardData.targetDate || cardData.due_date,
           close_date: cardData.solutionDate || cardData.close_date,
           closure_comment: cardData.proposedAction || cardData.closure_comment,
@@ -433,7 +463,8 @@ export const FiveSCardsPage: React.FC = () => {
           image_url: cardData.image_urls?.[0] || null,
           after_image_urls: cardData.after_image_urls || [],
           after_image_url: cardData.after_image_urls?.[0] || null,
-          date: cardData.date || new Date().toISOString().split('T')[0],
+          date: finalDate,
+          card_date: finalDate,
           created_by: user?.id,
           created_at: new Date().toISOString(),
         });
@@ -441,11 +472,11 @@ export const FiveSCardsPage: React.FC = () => {
         if (error) throw error;
       }
 
-      fetchCards();
+      await fetchCards();
       return true;
     } catch (err: any) {
-      console.error('Error saving 5S card:', err);
-      toast.error('Error al guardar: ' + err.message);
+      console.error('Error in handleSaveCard:', err);
+      toast.error('Error al guardar tarjeta: ' + (err.message || 'Error desconocido'));
       return false;
     }
   };

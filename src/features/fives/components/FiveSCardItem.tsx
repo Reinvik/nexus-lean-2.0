@@ -137,7 +137,7 @@ export const FiveSCardItem: React.FC<FiveSCardItemProps> = ({ card, onEdit, onDe
           <div className="flex items-center justify-between text-[11px] text-slate-400">
             <span className="flex items-center gap-1 truncate max-w-[130px]">
               <User size={12} className="text-slate-400 shrink-0" />
-              <span className="truncate">{card.assigned_to || 'Sin asignar'}</span>
+              <span className="truncate">{card.responsible || card.assigned_to || 'Sin asignar'}</span>
             </span>
 
             <span className="flex items-center gap-1 shrink-0">

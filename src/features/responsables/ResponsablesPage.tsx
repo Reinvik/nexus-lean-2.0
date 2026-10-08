@@ -182,7 +182,7 @@ export const ResponsablesPage: React.FC = () => {
         applyFilter(
           supabase
             .from('five_s_cards')
-            .select('id, assigned_to, status, findings, area, description, card_number, created_at, close_date, updated_at, company_id')
+            .select('id, assigned_to, responsible, status, findings, area, description, card_number, created_at, close_date, updated_at, company_id')
         ),
         applyFilter(
           supabase
@@ -298,7 +298,7 @@ export const ResponsablesPage: React.FC = () => {
 
       // 1. Process Five S Cards
       (cardsRes.data || []).forEach((c: any) => {
-        const prof = resolveNameAndProfile(c.assigned_to);
+        const prof = resolveNameAndProfile(c.responsible || c.assigned_to);
         if (!prof) return;
 
         const isClosed = ['cerrado', 'cerrada', 'resuelto', 'resuelta'].includes((c.status || '').toLowerCase());

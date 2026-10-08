@@ -59,6 +59,14 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
     if (!isOpen) return;
 
     if (card) {
+      let initialResponsible = card.responsible || '';
+      if (!initialResponsible && card.assigned_to) {
+        const found = users.find((u) => u.id === card.assigned_to);
+        if (found) {
+          initialResponsible = found.full_name || (found as any).name || found.email || '';
+        }
+      }
+
       setFormData({
         ...card,
         date: card.date || card.card_date || card.created_at,
@@ -69,7 +77,8 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
         proposedAction: card.proposedAction || card.closure_comment || '',
         category: card.category || 'Seiri',
         status: card.status || 'Abierto',
-        responsible: card.responsible || '',
+        responsible: initialResponsible,
+        assigned_to: card.assigned_to || null,
         targetDate: card.targetDate || card.due_date || '',
         solutionDate: card.solutionDate || card.close_date || '',
         image_urls: card.image_urls || (card.image_url ? [card.image_url] : []),
@@ -89,6 +98,7 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
         category: 'Seiri',
         status: 'Abierto',
         responsible: '',
+        assigned_to: null,
         targetDate: '',
         solutionDate: '',
         image_urls: [],
@@ -97,7 +107,29 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
     }
     setImageBeforeFiles([]);
     setImageAfterFiles([]);
-  }, [card, isOpen]);
+  }, [card, isOpen, users]);
+
+  // Lista de usuarios ordenada alfabéticamente
+  const sortedUsers = React.useMemo(() => {
+    return [...users].sort((a, b) => {
+      const nameA = (a.full_name || (a as any).name || a.email || '').trim().toLowerCase();
+      const nameB = (b.full_name || (b as any).name || b.email || '').trim().toLowerCase();
+      return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+    });
+  }, [users]);
+
+  const handleResponsibleChange = (selectedName: string) => {
+    const matched = users.find(
+      (u) =>
+        ((u as any).name || u.full_name || u.email || '').trim().toLowerCase() ===
+        selectedName.trim().toLowerCase()
+    );
+    setFormData((prev) => ({
+      ...prev,
+      responsible: selectedName,
+      assigned_to: matched ? matched.id : (selectedName ? prev.assigned_to : null),
+    }));
+  };
 
   if (!isOpen) return null;
 
@@ -277,6 +309,9 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
         after_image_urls: finalAfterUrls,
         after_image_url: finalAfterUrls[0] || null,
         date: formData.date || new Date().toISOString().split('T')[0],
+        card_date: formData.date || new Date().toISOString().split('T')[0],
+        responsible: formData.responsible || null,
+        assigned_to: formData.assigned_to || null,
       };
 
       const success = await onSave(payload);
@@ -549,11 +584,20 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                 <select
                   className="w-full py-1.5 px-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm text-slate-900 font-medium cursor-pointer"
                   value={formData.responsible || ''}
-                  onChange={(e) => updateField('responsible', e.target.value)}
+                  onChange={(e) => handleResponsibleChange(e.target.value)}
                 >
                   <option value="">Selecciona Responsable...</option>
-                  {users.map((u) => {
+                  {formData.responsible &&
+                    !sortedUsers.some(
+                      (u) =>
+                        ((u as any).name || u.full_name || u.email || '').trim().toLowerCase() ===
+                        formData.responsible?.trim().toLowerCase()
+                    ) && (
+                      <option value={formData.responsible}>{formData.responsible}</option>
+                    )}
+                  {sortedUsers.map((u) => {
                     const name = (u as any).name || u.full_name || u.email || '';
+                    if (!name) return null;
                     return (
                       <option key={u.id} value={name}>
                         {name}

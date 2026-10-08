@@ -219,7 +219,7 @@ export const DashboardPage: React.FC = () => {
           supabase
             .from('five_s_cards')
             .select(
-              'id, created_at, findings, area, description, assigned_to, status, company_id, card_number'
+              'id, created_at, findings, area, description, assigned_to, responsible, status, company_id, card_number'
             )
             .order('created_at', { ascending: false })
             .limit(10)
@@ -378,7 +378,7 @@ export const DashboardPage: React.FC = () => {
                 findings: i.findings?.trim() || '',
                 description: i.description?.trim() || '',
                 status: i.status || 'Abierto',
-                responsible: resolvePerson(i.assigned_to),
+                responsible: resolvePerson(i.responsible || i.assigned_to),
               };
             })
           );

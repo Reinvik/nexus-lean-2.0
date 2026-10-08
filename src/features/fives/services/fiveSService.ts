@@ -119,11 +119,28 @@ export const fiveSService = {
           imageUrl = await this.uploadImage(rawFileBefore);
         }
 
-        const payload = {
-          ...cardData,
-          image_url: imageUrl || cardData.image_url,
-          image_urls: imageUrl ? [imageUrl] : cardData.image_urls || [],
+        const finalDate = cardData.date || cardData.card_date || new Date().toISOString();
+        const payload: any = {
+          company_id: cardData.company_id,
+          card_number: cardData.card_number || cardData.cardNumber || null,
+          area: cardData.area || cardData.location || 'General',
+          description: cardData.description || cardData.article || null,
+          findings: cardData.findings || cardData.reason || null,
           status: cardData.status || 'Abierto',
+          category: cardData.category || 'Seiri',
+          priority: cardData.priority || 'Media',
+          assigned_to: cardData.assigned_to || null,
+          responsible: cardData.responsible || null,
+          due_date: cardData.due_date || cardData.targetDate || null,
+          close_date: cardData.close_date || cardData.solutionDate || null,
+          closure_comment: cardData.closure_comment || cardData.proposedAction || null,
+          image_url: imageUrl || cardData.image_url || null,
+          image_urls: imageUrl ? [imageUrl] : cardData.image_urls || [],
+          after_image_url: cardData.after_image_url || null,
+          after_image_urls: cardData.after_image_urls || [],
+          card_date: finalDate,
+          date: finalDate,
+          created_by: cardData.created_by || null,
           created_at: new Date().toISOString(),
         };
 
@@ -196,12 +213,39 @@ export const fiveSService = {
         afterImageUrl = await this.uploadImage(rawFileAfter);
       }
 
-      const payload = {
-        ...updates,
-        after_image_url: afterImageUrl,
-        after_image_urls: afterImageUrl ? [afterImageUrl] : updates.after_image_urls,
+      const payload: any = {
         updated_at: new Date().toISOString(),
       };
+      if (updates.card_number !== undefined || updates.cardNumber !== undefined)
+        payload.card_number = updates.card_number || updates.cardNumber;
+      if (updates.area !== undefined || updates.location !== undefined)
+        payload.area = updates.area || updates.location;
+      if (updates.description !== undefined || updates.article !== undefined)
+        payload.description = updates.description || updates.article;
+      if (updates.findings !== undefined || updates.reason !== undefined)
+        payload.findings = updates.findings || updates.reason;
+      if (updates.status !== undefined) payload.status = updates.status;
+      if (updates.category !== undefined) payload.category = updates.category;
+      if (updates.priority !== undefined) payload.priority = updates.priority;
+      if (updates.assigned_to !== undefined) payload.assigned_to = updates.assigned_to;
+      if (updates.responsible !== undefined) payload.responsible = updates.responsible;
+      if (updates.due_date !== undefined || updates.targetDate !== undefined)
+        payload.due_date = updates.due_date || updates.targetDate;
+      if (updates.close_date !== undefined || updates.solutionDate !== undefined)
+        payload.close_date = updates.close_date || updates.solutionDate;
+      if (updates.closure_comment !== undefined || updates.proposedAction !== undefined)
+        payload.closure_comment = updates.closure_comment || updates.proposedAction;
+      if (updates.date !== undefined || updates.card_date !== undefined) {
+        payload.date = updates.date || updates.card_date;
+        payload.card_date = updates.date || updates.card_date;
+      }
+      if (afterImageUrl) {
+        payload.after_image_url = afterImageUrl;
+        payload.after_image_urls = [afterImageUrl];
+      } else if (updates.after_image_urls) {
+        payload.after_image_urls = updates.after_image_urls;
+        payload.after_image_url = updates.after_image_urls[0] || null;
+      }
 
       // Check if it's an offline card
       if (cardId.startsWith('off_')) {
