@@ -192,6 +192,8 @@ export const A3Page: React.FC = () => {
             follow_up_data: p.follow_up_data || [],
             actionPlan: p.action_plan || [],
             action_plan: p.action_plan || [],
+            actionPlansMeta: p.action_plans_meta || null,
+            action_plans_meta: p.action_plans_meta || null,
             created_at: p.created_at,
           };
         });
@@ -371,7 +373,10 @@ export const A3Page: React.FC = () => {
       if (current.id) {
         const { error } = await supabase
           .from('a3_projects')
-          .update({ action_plan: acts })
+          .update({
+            action_plan: acts,
+            action_plans_meta: current.actionPlansMeta || current.action_plans_meta || null,
+          })
           .eq('id', current.id);
 
         if (error) throw error;
@@ -415,6 +420,7 @@ export const A3Page: React.FC = () => {
           five_whys: current.multipleFiveWhys || current.five_whys || [],
           follow_up_data: current.followUpData || current.follow_up_data || [],
           action_plan: acts,
+          action_plans_meta: current.actionPlansMeta || current.action_plans_meta || null,
           company_id: resolvedCompanyId,
         };
 
@@ -493,6 +499,7 @@ export const A3Page: React.FC = () => {
           five_whys: proj.multipleFiveWhys || proj.five_whys,
           follow_up_data: proj.followUpData || proj.follow_up_data,
           action_plan: proj.actionPlan || proj.action_plan,
+          action_plans_meta: proj.actionPlansMeta || proj.action_plans_meta || null,
           company_id: resolvedCompanyId,
         };
 
@@ -563,6 +570,7 @@ export const A3Page: React.FC = () => {
       five_whys: current.multipleFiveWhys || current.five_whys,
       follow_up_data: current.followUpData || current.follow_up_data,
       action_plan: current.actionPlan || current.action_plan,
+      action_plans_meta: current.actionPlansMeta || current.action_plans_meta || null,
       company_id: resolvedCompanyId,
     };
 
@@ -648,6 +656,9 @@ export const A3Page: React.FC = () => {
           : {}),
         ...(field === 'followUpData' || field === 'follow_up_data'
           ? { followUpData: value, follow_up_data: value }
+          : {}),
+        ...(field === 'actionPlansMeta' || field === 'action_plans_meta'
+          ? { actionPlansMeta: value, action_plans_meta: value }
           : {}),
       };
       selectedA3Ref.current = updated;
@@ -1489,8 +1500,21 @@ export const A3Page: React.FC = () => {
                       selectedA3.countermeasure_list ||
                       []
                     ).map((c) => c.title)}
-                    plansMeta={selectedA3.actionPlansMeta}
-                    onUpdatePlansMeta={(groups) => updateA3Field('actionPlansMeta', groups)}
+                    plansMeta={selectedA3.actionPlansMeta || selectedA3.action_plans_meta || undefined}
+                    onUpdatePlansMeta={(groups) => {
+                      updateA3Field('actionPlansMeta', groups);
+                      if (selectedA3Ref.current?.id) {
+                        supabase
+                          .from('a3_projects')
+                          .update({ action_plans_meta: groups })
+                          .eq('id', selectedA3Ref.current.id)
+                          .then(({ error }) => {
+                            if (!error) {
+                              setLastSavedAt(new Date());
+                            }
+                          });
+                      }
+                    }}
                     isSaving={isAutoSaving}
                     lastSavedAt={lastSavedAt}
                     onShareEmail={() => setIsShareModalOpen(true)}

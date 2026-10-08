@@ -135,8 +135,11 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
       progress = Math.round((completedCount / subtasks.length) * 100);
     }
 
+    const targetPlan = planGroups.find((p) => p.id === formData.planId);
+
     onSave({
       ...formData,
+      planName: targetPlan?.name || formData.planName || undefined,
       // Backwards compatibility aliases
       activity: formData.what,
       responsible: formData.who,

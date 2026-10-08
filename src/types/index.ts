@@ -278,6 +278,7 @@ export interface A3Project {
   action_plan?: A3ActionPlanItem[];
   actionPlan?: A3ActionPlanItem[];
   actionPlansMeta?: A3PlanGroup[];
+  action_plans_meta?: A3PlanGroup[];
   follow_up_notes?: string;
   followUp?: string;
   follow_up_data?: A3FollowUpConfig[] | any;

@@ -61,10 +61,36 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
   onShareEmail,
 }) => {
   // Plan groups state
-  const planGroups = useMemo(() => {
-    if (plansMeta && plansMeta.length > 0) return plansMeta;
-    return DEFAULT_PLANS;
-  }, [plansMeta]);
+  const planGroups = useMemo<A3PlanGroup[]>(() => {
+    let base: A3PlanGroup[];
+    if (Array.isArray(plansMeta)) {
+      // Respect user's saved/customized plans even if only 1 plan exists (e.g. user deleted containment/standardization)
+      base = plansMeta.length > 0 ? [...plansMeta] : [DEFAULT_PLANS[0]];
+    } else {
+      // Only uninitialized projects start with default plans
+      base = [...DEFAULT_PLANS];
+    }
+
+    // Auto-discover and ensure any plan with existing actions is never hidden
+    const existingIds = new Set(base.map((p) => p.id));
+    (actions || []).forEach((act) => {
+      const pid = act.planId;
+      if (pid && pid !== 'all' && !existingIds.has(pid)) {
+        existingIds.add(pid);
+        const discoveredName =
+          act.planName ||
+          (pid.toLowerCase().includes('5s') ? 'Plan 5S' : `Plan ${pid.replace('plan-', '')}`);
+        base.push({
+          id: pid,
+          name: discoveredName,
+          description: `Plan de acción ${discoveredName}`,
+          color: 'indigo',
+        });
+      }
+    });
+
+    return base;
+  }, [plansMeta, actions]);
 
   const [activePlanId, setActivePlanId] = useState<string>('all'); // 'all' or plan.id
   const [searchQuery, setSearchQuery] = useState('');
