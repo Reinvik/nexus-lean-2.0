@@ -3,8 +3,78 @@
  * Genera análisis inteligentes basados en los datos de la empresa
  */
 
-const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+/**
+ * Modelos de Gemini para generación de contenido.
+ * Si un modelo es deprecado o no está disponible, el sistema cambia automáticamente
+ * al siguiente o al modelo sugerido por el error de Google.
+ */
+const DEFAULT_GEMINI_MODELS = [
+  'gemini-1.5-flash',
+  'gemini-2.5-flash',
+  'gemini-1.5-pro',
+  'gemini-2.5-pro',
+  'gemini-2.0-flash-exp',
+];
+
+/**
+ * Consulta la API de Gemini ejecutando fallback automático si un modelo ya no está disponible.
+ */
+async function callGeminiAPI(apiKey: string, requestBody: any): Promise<any> {
+  const customModel =
+    (typeof window !== 'undefined' ? localStorage.getItem('gemini_model') : null) ||
+    import.meta.env.VITE_GEMINI_MODEL;
+
+  const modelsToTry: string[] = Array.from(
+    new Set(
+      [
+        customModel,
+        ...DEFAULT_GEMINI_MODELS,
+      ].filter(Boolean) as string[]
+    )
+  );
+
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const model = modelsToTry[i];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        const errMsg: string =
+          errJson.error?.message || `Error HTTP ${response.status} en modelo ${model}`;
+
+        console.warn(`[Gemini API] Falló modelo ${model}:`, errMsg);
+
+        // Detectar si Google recomendó un modelo nuevo en su mensaje de error:
+        // Ej: "Please update your code to use models/gemini-1.5-flash" o "models/gemini-3.8-flash"
+        const match = errMsg.match(/models\/([a-zA-Z0-9._-]+)/i);
+        if (match && match[1] && !modelsToTry.includes(match[1])) {
+          console.info(`[Gemini API] Google sugiere usar el modelo: ${match[1]}. Reintentando...`);
+          modelsToTry.splice(i + 1, 0, match[1]);
+        }
+
+        lastError = new Error(errMsg);
+        continue;
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (networkErr: any) {
+      console.warn(`[Gemini API] Error de red consultando modelo ${model}:`, networkErr);
+      lastError = networkErr;
+    }
+  }
+
+  throw lastError || new Error('No fue posible obtener respuesta de Gemini.');
+}
 
 const OLLAMA_FALLBACK_URL =
   'https://desktop-sj195st.tail5a26f1.ts.net:8443/api/generate';
@@ -477,24 +547,14 @@ export const generateAIInsight = async (
       return await queryOllamaFallback(prompt, true).then(extractAndParseJSON);
     }
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: 'application/json',
-        },
-      }),
+    const data = await callGeminiAPI(apiKey, {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+      },
     });
 
-    if (!response.ok) {
-      const errJson = await response.json();
-      throw new Error(errJson.error?.message || 'Error consultando Gemini');
-    }
-
-    const data = await response.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!rawText) throw new Error('Respuesta vacía de Gemini');
 
@@ -551,23 +611,13 @@ export const sendChatMessage = async (
       return await queryOllamaFallback(chatPrompt);
     }
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: formattedHistory,
-        generationConfig: {
-          temperature: 0.7,
-        },
-      }),
+    const data = await callGeminiAPI(apiKey, {
+      contents: formattedHistory,
+      generationConfig: {
+        temperature: 0.7,
+      },
     });
 
-    if (!response.ok) {
-      const errJson = await response.json();
-      throw new Error(errJson.error?.message || 'Error en chat de Gemini');
-    }
-
-    const data = await response.json();
     return (
       data.candidates?.[0]?.content?.parts?.[0]?.text ||
       'No pude procesar la respuesta.'
@@ -613,24 +663,14 @@ Responde únicamente con el texto de la solución.
       return await queryOllamaFallback(prompt);
     }
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 256,
-        },
-      }),
+    const data = await callGeminiAPI(apiKey, {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 256,
+      },
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error?.message || 'Error en la API de Gemini');
-    }
-
-    const data = await response.json();
     const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!textResponse) throw new Error('Respuesta vacía de Gemini');
 
