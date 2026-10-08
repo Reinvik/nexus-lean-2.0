@@ -30,6 +30,7 @@ import {
   ListTodo,
   ArrowLeft,
   Share2,
+  Mail,
   Layers,
   Sparkles,
   ChevronRight,
@@ -46,6 +47,7 @@ import A3FollowUp from './components/A3FollowUp';
 import A3CountermeasureManager from './components/A3CountermeasureManager';
 import A3ActionPlan5W2H from './components/A3ActionPlan5W2H';
 import A3BoardView from './components/A3BoardView';
+import A3ShareModal from './components/A3ShareModal';
 import RichTextEditor from '../../components/common/RichTextEditor';
 
 export const A3Page: React.FC = () => {
@@ -86,6 +88,7 @@ export const A3Page: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'context' | 'analysis' | 'countermeasures' | 'plan' | 'followup'>('context');
   const [isBoardMode, setIsBoardMode] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const fullScreenContainerRef = useRef<HTMLDivElement>(null);
 
   // Target Company ID
@@ -1125,6 +1128,28 @@ export const A3Page: React.FC = () => {
                 )}
               </div>
 
+              {/* Share Pending Tasks via Email Button */}
+              {selectedA3 && (
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl shadow-xs transition-all shrink-0"
+                  title="Compartir tareas pendientes por correo electrónico"
+                >
+                  <Mail size={15} />
+                  <span className="hidden sm:inline">Compartir Tareas</span>
+                  {(() => {
+                    const acts = (selectedA3.actionPlan || selectedA3.action_plan || []) as A3ActionPlanItem[];
+                    const pendCount = acts.filter((a) => a.status !== 'completed').length;
+                    return pendCount > 0 ? (
+                      <span className="ml-0.5 px-1.5 py-0.2 text-[10px] bg-indigo-600 text-white font-black rounded-full">
+                        {pendCount}
+                      </span>
+                    ) : null;
+                  })()}
+                </button>
+              )}
+
               {/* Save Button */}
               <button
                 type="button"
@@ -1468,6 +1493,7 @@ export const A3Page: React.FC = () => {
                     onUpdatePlansMeta={(groups) => updateA3Field('actionPlansMeta', groups)}
                     isSaving={isAutoSaving}
                     lastSavedAt={lastSavedAt}
+                    onShareEmail={() => setIsShareModalOpen(true)}
                   />
                 </div>
               )}
@@ -1571,6 +1597,35 @@ export const A3Page: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Share Pending Tasks Modal */}
+      {selectedA3 && (
+        <A3ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          project={selectedA3}
+          actions={(selectedA3.actionPlan || selectedA3.action_plan || []) as A3ActionPlanItem[]}
+          companyId={
+            targetCompanyId ||
+            selectedA3.company_id ||
+            selectedA3.companyId ||
+            user?.company_id ||
+            user?.companyId ||
+            null
+          }
+          companyName={
+            companies.find(
+              (c) =>
+                c.id ===
+                (targetCompanyId ||
+                  selectedA3.company_id ||
+                  selectedA3.companyId ||
+                  user?.company_id ||
+                  user?.companyId)
+            )?.name
+          }
+        />
       )}
     </div>
   );

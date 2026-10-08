@@ -26,6 +26,7 @@ import {
   Check,
   X,
   FileSpreadsheet,
+  Mail,
 } from 'lucide-react';
 import type { A3ActionPlanItem, A3Subtask, A3PlanGroup } from '../../../types';
 import A3ActionModal from './A3ActionModal';
@@ -39,6 +40,7 @@ interface A3ActionPlan5W2HProps {
   onUpdatePlansMeta?: (groups: A3PlanGroup[]) => void;
   isSaving?: boolean;
   lastSavedAt?: Date | null;
+  onShareEmail?: () => void;
 }
 
 const DEFAULT_PLANS: A3PlanGroup[] = [
@@ -56,6 +58,7 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
   onUpdatePlansMeta,
   isSaving = false,
   lastSavedAt = null,
+  onShareEmail,
 }) => {
   // Plan groups state
   const planGroups = useMemo(() => {
@@ -505,6 +508,22 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 Autoguardado activo
               </span>
+            )}
+            {onShareEmail && (
+              <button
+                type="button"
+                onClick={onShareEmail}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition-all shadow-xs shrink-0"
+                title="Compartir tareas pendientes por correo"
+              >
+                <Mail size={15} />
+                <span>Compartir Pendientes</span>
+                {metrics.total - metrics.completed > 0 && (
+                  <span className="px-1.5 py-0.2 text-[10px] bg-indigo-600 text-white rounded-full font-black">
+                    {metrics.total - metrics.completed}
+                  </span>
+                )}
+              </button>
             )}
             <button
               type="button"

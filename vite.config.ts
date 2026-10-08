@@ -16,6 +16,52 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    {
+      name: 'api-dev-middleware',
+      configureServer(server) {
+        server.middlewares.use(async (req, res, next) => {
+          if (req.url && req.url.startsWith('/api/send-a3-email')) {
+            try {
+              // @ts-ignore
+              const handlerModule = await import('./api/send-a3-email.js');
+              let body = '';
+              req.on('data', (chunk) => {
+                body += chunk;
+              });
+              req.on('end', async () => {
+                // @ts-ignore
+                req.body = body ? JSON.parse(body) : {};
+                const customRes = {
+                  setHeader(k: string, v: string) {
+                    res.setHeader(k, v);
+                  },
+                  status(code: number) {
+                    res.statusCode = code;
+                    return {
+                      json(data: any) {
+                        res.setHeader('Content-Type', 'application/json');
+                        res.end(JSON.stringify(data));
+                      },
+                      end() {
+                        res.end();
+                      },
+                    };
+                  },
+                };
+                await handlerModule.default(req, customRes);
+              });
+              return;
+            } catch (err: any) {
+              console.error('Error in dev API middleware:', err);
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+              return;
+            }
+          }
+          next();
+        });
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: {
