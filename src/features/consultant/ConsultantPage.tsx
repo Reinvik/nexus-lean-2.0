@@ -139,15 +139,16 @@ export const ConsultantPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full mx-auto space-y-4 flex flex-col h-[calc(100vh-100px)]">
-      <div className="shrink-0">
+    <div className="w-full mx-auto flex flex-col h-[calc(100vh-theme(spacing.20))] md:h-[calc(100vh-theme(spacing.24))]">
+      <div className="shrink-0 mb-2">
         <HeaderWithFilter
           title="Consultor IA"
           subtitle="Análisis inteligente y asistencia en tiempo real"
+          compact={true}
         />
       </div>
 
-      <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
+      <div className="flex-1 min-h-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative flex flex-col">
         <AIConsultant
           data={data}
           companyName={companyName}

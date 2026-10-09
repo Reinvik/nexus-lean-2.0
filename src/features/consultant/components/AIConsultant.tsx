@@ -396,17 +396,17 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
       {/* Top Header */}
       <div className="bg-gradient-to-r from-slate-800 via-slate-800 to-cyan-900 p-0 flex flex-col shrink-0 font-sans">
         <div
-          className={`p-3 lg:p-4 flex items-center justify-between ${
+          className={`${fullScreen ? 'px-4 py-2.5' : 'p-3 lg:p-4'} flex items-center justify-between ${
             !fullScreen && !isMaximized ? 'cursor-pointer' : ''
           }`}
           onClick={() => !fullScreen && !isMaximized && setExpanded(!expanded)}
         >
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-xl shadow-lg shadow-cyan-500/30">
-              <Brain size={22} className="text-white" />
+            <div className="p-2 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-xl shadow-md shadow-cyan-500/20">
+              <Brain size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-white flex items-center gap-2">
+              <h3 className="font-bold text-white text-sm md:text-base flex items-center gap-2">
                 Consultor IA
                 <Sparkles size={14} className="text-cyan-400" />
               </h3>
@@ -428,11 +428,11 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                 generateInsight();
               }}
               disabled={loading || isSyncing || Boolean(fetchError)}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title={isSyncing ? 'Sincronizando historial...' : 'Regenerar análisis'}
             >
               <RefreshCw
-                size={16}
+                size={15}
                 className={`text-white ${loading || isSyncing ? 'animate-spin' : ''}`}
               />
             </button>
@@ -441,10 +441,10 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                 e.stopPropagation();
                 setIsMaximized(!isMaximized);
               }}
-              className="p-2 text-slate-400 hover:text-white transition-colors hover:bg-white/10 rounded-lg"
+              className="p-1.5 text-slate-400 hover:text-white transition-colors hover:bg-white/10 rounded-lg"
               title={isMaximized ? 'Minimizar' : 'Pantalla Completa'}
             >
-              {isMaximized ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
             {!isMaximized && !fullScreen && (
               <button className="p-1 text-slate-400">
@@ -456,36 +456,36 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
 
         {/* Tabs Bar */}
         {isExpanded && (
-          <div className="flex bg-slate-900/50 backdrop-blur-sm px-2 pt-2 gap-1 border-t border-white/5 font-sans">
+          <div className="flex bg-slate-900/50 backdrop-blur-sm px-3 pt-1.5 gap-1 border-t border-white/5 font-sans">
             <button
               onClick={() => setActiveTab('analysis')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
                 activeTab === 'analysis'
                   ? 'bg-white text-slate-800'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
               }`}
             >
-              <Target size={14} /> Análisis
+              <Target size={13} /> Análisis
             </button>
             <button
               onClick={() => setActiveTab('progress')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
                 activeTab === 'progress'
                   ? 'bg-white text-slate-800'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
               }`}
             >
-              <TrendingUp size={14} /> Progreso
+              <TrendingUp size={13} /> Progreso
             </button>
             <button
               onClick={() => setActiveTab('chat')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
                 activeTab === 'chat'
                   ? 'bg-white text-slate-800'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
               }`}
             >
-              <MessageSquare size={14} /> Chat Asistente
+              <MessageSquare size={13} /> Chat Asistente
             </button>
           </div>
         )}

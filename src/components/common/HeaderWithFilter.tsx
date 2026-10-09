@@ -6,12 +6,16 @@ interface HeaderWithFilterProps {
   title: string;
   subtitle?: string;
   children?: React.ReactNode;
+  className?: string;
+  compact?: boolean;
 }
 
 export const HeaderWithFilter: React.FC<HeaderWithFilterProps> = ({
   title,
   subtitle,
   children,
+  className = '',
+  compact = false,
 }) => {
   const { user, companies, globalFilterCompanyId, setGlobalFilterCompanyId } = useAuth();
 
@@ -19,33 +23,37 @@ export const HeaderWithFilter: React.FC<HeaderWithFilterProps> = ({
   const canSwitchCompanies = Boolean(user?.isGlobalAdmin);
 
   return (
-    <header className="page-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
+    <header
+      className={`page-header flex flex-col md:flex-row justify-between items-start md:items-center gap-3 ${
+        compact ? 'mb-2 pb-0 border-b-0' : 'mb-6 border-b border-gray-100 pb-4'
+      } ${className}`}
+    >
       <div>
-        <h2 className="text-2xl font-bold text-gray-800 tracking-tight font-sans">{title}</h2>
-        {subtitle && <p className="text-gray-500 font-medium mt-1 text-sm">{subtitle}</p>}
+        <h2 className={`${compact ? 'text-xl' : 'text-2xl'} font-bold text-gray-800 tracking-tight font-sans`}>{title}</h2>
+        {subtitle && <p className={`text-gray-500 font-medium ${compact ? 'text-xs mt-0.5' : 'text-sm mt-1'}`}>{subtitle}</p>}
       </div>
 
       {/* Unified Toolbar Container */}
-      <div className="flex items-center bg-white rounded-xl shadow-sm border border-slate-200 p-1 h-[50px]">
+      <div className={`flex items-center bg-white rounded-xl shadow-sm border border-slate-200 p-1 ${compact ? 'h-[40px]' : 'h-[50px]'}`}>
         {/* 1. Action Buttons - Passed as children */}
         <div className="flex items-center px-1">{children}</div>
 
         {/* Divider (Only if selector is visible) */}
-        {canSwitchCompanies && companies.length > 0 && (
-          <div className="h-6 w-px bg-slate-200 mx-1"></div>
+        {canSwitchCompanies && companies.length > 0 && children && (
+          <div className="h-5 w-px bg-slate-200 mx-1"></div>
         )}
 
         {/* 2. Company Selector */}
         {canSwitchCompanies && companies.length > 0 && (
           <div className="relative group">
-            <div className="flex items-center gap-2 pl-3 pr-4 py-2 rounded-lg transition-colors hover:bg-slate-50 cursor-pointer min-w-[200px]">
+            <div className={`flex items-center gap-2 pl-2.5 pr-3 py-1 rounded-lg transition-colors hover:bg-slate-50 cursor-pointer ${compact ? 'min-w-[170px]' : 'min-w-[200px]'}`}>
               <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-md shrink-0">
-                <Building size={16} />
+                <Building size={compact ? 15 : 16} />
               </div>
               <select
                 value={globalFilterCompanyId || ''}
                 onChange={(e) => setGlobalFilterCompanyId(e.target.value || null)}
-                className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full p-0 py-1 truncate appearance-none"
+                className="bg-transparent border-none text-xs md:text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full p-0 py-0.5 truncate appearance-none"
               >
                 {[...new Map(companies.map((item) => [item.id, item])).values()].map((c) => (
                   <option key={c.id} value={c.id}>
