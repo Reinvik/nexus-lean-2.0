@@ -63,7 +63,8 @@ export const NewIdeaModal: React.FC<NewIdeaModalProps> = ({
 
     setIsGenerating(true);
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const apiKey =
+        localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '';
       const solution = await generateQuickWinSolution(
         formData.title,
         formData.description,

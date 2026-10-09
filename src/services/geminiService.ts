@@ -76,6 +76,15 @@ async function callGeminiAPI(apiKey: string, requestBody: any): Promise<any> {
   throw lastError || new Error('No fue posible obtener respuesta de Gemini.');
 }
 
+export function getEffectiveApiKey(passedKey?: string): string {
+  if (passedKey && passedKey.trim()) return passedKey.trim();
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem('gemini_api_key');
+    if (local && local.trim()) return local.trim();
+  }
+  return import.meta.env.VITE_GEMINI_API_KEY || '';
+}
+
 const OLLAMA_FALLBACK_URL =
   'https://desktop-sj195st.tail5a26f1.ts.net:8443/api/generate';
 const OLLAMA_MODEL = 'qwen2.5-coder:14b';
@@ -542,12 +551,14 @@ export const generateAIInsight = async (
   "generatedAt": "${new Date().toISOString()}"
 }`;
 
+  const effectiveKey = getEffectiveApiKey(apiKey);
+
   try {
-    if (!apiKey) {
+    if (!effectiveKey) {
       return await queryOllamaFallback(prompt, true).then(extractAndParseJSON);
     }
 
-    const data = await callGeminiAPI(apiKey, {
+    const data = await callGeminiAPI(effectiveKey, {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
@@ -603,15 +614,17 @@ export const sendChatMessage = async (
     })),
   ];
 
+  const effectiveKey = getEffectiveApiKey(apiKey);
+
   try {
-    if (!apiKey) {
+    if (!effectiveKey) {
       const chatPrompt = `${systemPrompt}\n\nHistorial de conversación:\n${history
         .map((h) => `${h.role}: ${h.content}`)
         .join('\n')}\nUsuario: ${newMessage}\nAsistente:`;
       return await queryOllamaFallback(chatPrompt);
     }
 
-    const data = await callGeminiAPI(apiKey, {
+    const data = await callGeminiAPI(effectiveKey, {
       contents: formattedHistory,
       generationConfig: {
         temperature: 0.7,
@@ -643,7 +656,7 @@ export const shouldGenerateNewInsight = (lastInsight: any): boolean => {
 export const generateQuickWinSolution = async (
   title: string,
   description: string,
-  apiKey: string
+  apiKey?: string
 ): Promise<string> => {
   const prompt = `
 Eres un experto en Lean Manufacturing y mejora continua.
@@ -658,12 +671,14 @@ Tu tarea:
 Responde únicamente con el texto de la solución.
 `;
 
+  const effectiveKey = getEffectiveApiKey(apiKey);
+
   try {
-    if (!apiKey) {
+    if (!effectiveKey) {
       return await queryOllamaFallback(prompt);
     }
 
-    const data = await callGeminiAPI(apiKey, {
+    const data = await callGeminiAPI(effectiveKey, {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
