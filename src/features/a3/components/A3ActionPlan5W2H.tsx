@@ -28,8 +28,11 @@ import {
   FileSpreadsheet,
   Mail,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import type { A3ActionPlanItem, A3Subtask, A3PlanGroup } from '../../../types';
 import A3ActionModal from './A3ActionModal';
+import { generateLeanSubtasks } from '../../../services/geminiService';
+import { COMMON_SUBTASK_VERBS, formatWithActionVerb, startsWithActionVerb } from '../utils/leanActionVerbs';
 
 interface A3ActionPlan5W2HProps {
   actions?: A3ActionPlanItem[];
@@ -41,6 +44,8 @@ interface A3ActionPlan5W2HProps {
   isSaving?: boolean;
   lastSavedAt?: Date | null;
   onShareEmail?: () => void;
+  projectGoal?: string;
+  rootCause?: string;
 }
 
 const DEFAULT_PLANS: A3PlanGroup[] = [
@@ -59,6 +64,8 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
   isSaving = false,
   lastSavedAt = null,
   onShareEmail,
+  projectGoal,
+  rootCause,
 }) => {
   // Plan groups state
   const planGroups = useMemo<A3PlanGroup[]>(() => {
@@ -310,6 +317,52 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
     });
 
     onChange(updated);
+  };
+
+  // Sugerir subtareas con IA directamente desde el renglón de la acción
+  const [loadingAIActionId, setLoadingAIActionId] = useState<string | number | null>(null);
+
+  const handleAISuggestSubtasksForAction = async (action: A3ActionPlanItem) => {
+    setLoadingAIActionId(action.id);
+    try {
+      const suggested = await generateLeanSubtasks(action.what, {
+        why: action.why,
+        countermeasure: action.countermeasure,
+        projectGoal,
+        rootCause,
+      });
+
+      if (suggested && suggested.length > 0) {
+        const newSubs: A3Subtask[] = suggested.map((s) => ({
+          id: Date.now() + Math.random(),
+          title: s.title,
+          completed: false,
+          responsible: action.who || undefined,
+          dueDate: action.when || undefined,
+        }));
+
+        const updated = normalizedActions.map((a) => {
+          if (a.id === action.id) {
+            const nextSubs = [...(a.subtasks || []), ...newSubs];
+            const completedCount = nextSubs.filter((st) => st.completed).length;
+            const progress = Math.round((completedCount / nextSubs.length) * 100);
+            return {
+              ...a,
+              subtasks: nextSubs,
+              progress,
+            };
+          }
+          return a;
+        });
+
+        onChange(updated);
+        toast.success(`Se agregaron ${suggested.length} subtareas sugeridas por IA.`);
+      }
+    } catch (err: any) {
+      toast.error('No se pudieron generar subtareas automáticas.');
+    } finally {
+      setLoadingAIActionId(null);
+    }
   };
 
   // Change action status
@@ -998,7 +1051,7 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            placeholder="Escribe el nombre de la subtarea y presiona Enter..."
+                            placeholder="Escribe la subtarea (ej: Estandarizar instructivo)..."
                             value={quickSubtaskInputs[action.id] || ''}
                             onChange={(e) =>
                               setQuickSubtaskInputs((prev) => ({
@@ -1016,13 +1069,45 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
                           />
                           <button
                             type="button"
+                            onClick={() => handleAISuggestSubtasksForAction(action)}
+                            disabled={loadingAIActionId === action.id}
+                            className="px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-sm transition-all disabled:opacity-50"
+                            title="Consultor IA: Proponer 3-4 subtareas para esta acción"
+                          >
+                            <Sparkles size={13} className={loadingAIActionId === action.id ? 'animate-spin' : ''} />
+                            <span>{loadingAIActionId === action.id ? 'Generando...' : '✨ Sugerir con IA'}</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleQuickAddSubtask(action.id)}
                             disabled={!quickSubtaskInputs[action.id]?.trim()}
                             className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 shadow-sm transition-colors"
                           >
                             <Plus size={14} />
-                            <span>Añadir Subtarea</span>
+                            <span>Añadir</span>
                           </button>
+                        </div>
+
+                        {/* Quick Verb Pills for Subtask */}
+                        <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Verbos Lean:</span>
+                          {COMMON_SUBTASK_VERBS.slice(0, 7).map((verb) => (
+                            <button
+                              key={verb}
+                              type="button"
+                              onClick={() => {
+                                const current = quickSubtaskInputs[action.id] || '';
+                                if (!current) {
+                                  setQuickSubtaskInputs(prev => ({ ...prev, [action.id]: `${verb} ` }));
+                                } else if (!startsWithActionVerb(current)) {
+                                  setQuickSubtaskInputs(prev => ({ ...prev, [action.id]: `${verb} ${current}` }));
+                                }
+                              }}
+                              className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 rounded-md border border-slate-200 transition-colors"
+                            >
+                              +{verb}
+                            </button>
+                          ))}
                         </div>
 
                         {/* Subtasks items */}
@@ -1101,12 +1186,30 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
         planGroups={planGroups}
         activePlanId={activePlanId === 'all' ? 'main' : activePlanId}
         countermeasures={countermeasures}
+        projectGoal={projectGoal}
+        rootCause={rootCause}
       />
 
       {/* 6. New Plan Group Modal */}
       {isNewPlanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              if (newPlanName.trim() || newPlanDesc.trim()) {
+                if (window.confirm('¿Deseas descartar los cambios y cerrar sin crear el plan?')) {
+                  setIsNewPlanModalOpen(false);
+                }
+              } else {
+                setIsNewPlanModalOpen(false);
+              }
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FolderPlus size={18} className="text-cyan-400" />

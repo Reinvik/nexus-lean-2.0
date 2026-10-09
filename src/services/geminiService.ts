@@ -700,10 +700,154 @@ Responde únicamente con el texto de la solución.
   }
 };
 
+/**
+ * Mejora la redacción de una acción o plan 5W2H para que inicie con un verbo en infinitivo
+ * y cumpla con el estándar Lean.
+ */
+export const improveLeanActionWording = async (
+  text: string,
+  context?: { why?: string; goal?: string },
+  apiKey?: string
+): Promise<string> => {
+  const prompt = `
+Eres un consultor experto en Lean Manufacturing, Kaizen y Toyota A3.
+Tu tarea es reescribir la siguiente acción o plan para que cumpla rigurosamente con el estándar Lean:
+1. Debe iniciar OBLIGATORIAMENTE con un verbo de acción en infinitivo (ej: Implementar, Estandarizar, Diseñar, Capacitar, Auditar, Instalar, Documentar, Calibrar, Medir, Optimizar, etc.).
+2. Debe ser directo, concreto, accionable en el Gemba (terreno) y profesional.
+3. Máximo 15 palabras.
+
+Texto original: "${text}"
+${context?.why ? `Propósito/Por qué: "${context.why}"` : ''}
+${context?.goal ? `Meta del A3: "${context.goal}"` : ''}
+
+Responde ÚNICAMENTE con la frase reescrita, sin explicaciones adicionales ni comillas.
+`;
+
+  const effectiveKey = getEffectiveApiKey(apiKey);
+
+  try {
+    if (!effectiveKey) {
+      return await queryOllamaFallback(prompt);
+    }
+
+    const data = await callGeminiAPI(effectiveKey, {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 120,
+      },
+    });
+
+    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!textResponse) throw new Error('Respuesta vacía de Gemini');
+
+    return textResponse.trim().replace(/^["']|["']$/g, '');
+  } catch (error) {
+    console.warn('Error in improveLeanActionWording, using local fallback:', error);
+    try {
+      const ollamaRes = await queryOllamaFallback(prompt);
+      return ollamaRes.replace(/^["']|["']$/g, '').trim();
+    } catch {
+      // Fallback algorítmico básico
+      const words = text.trim().split(' ');
+      return `Implementar ${words.join(' ')}`;
+    }
+  }
+};
+
+/**
+ * Propone subtareas operativas concretas siguiendo el ciclo PDCA (Plan, Do, Check, Act)
+ * para completar un plan de acción 5W2H.
+ */
+export const generateLeanSubtasks = async (
+  actionWhat: string,
+  context?: {
+    why?: string;
+    rootCause?: string;
+    projectGoal?: string;
+    countermeasure?: string;
+  },
+  apiKey?: string
+): Promise<Array<{ title: string; completed: boolean }>> => {
+  const prompt = `
+Eres un consultor experto en Lean Manufacturing y Toyota A3.
+Para la siguiente acción de un plan 5W2H:
+Acción: "${actionWhat}"
+${context?.why ? `Propósito (Why): "${context.why}"` : ''}
+${context?.countermeasure ? `Contramedida raíz: "${context.countermeasure}"` : ''}
+${context?.projectGoal ? `Meta global del A3: "${context.projectGoal}"` : ''}
+
+Genera entre 3 y 4 subtareas secuenciales de alto impacto para ejecutar y asegurar el éxito de esta acción.
+REGLAS OBLIGATORIAS:
+- Cada subtarea DEBE empezar OBLIGATORIAMENTE con un verbo en infinitivo (ej: Definir, Diseñar, Capacitar, Ejecutar, Verificar, Medir, Estandarizar, Auditar).
+- Deben seguir la lógica Lean (preparar/estándar -> ejecutar/piloto -> verificar/medir -> estandarizar).
+- Máximo 10 palabras por subtarea.
+- Responde ÚNICAMENTE en formato JSON plano como una lista:
+[
+  { "title": "Definir estándar operativo para..." },
+  { "title": "Capacitar al personal de turno en..." },
+  { "title": "Ejecutar prueba piloto en línea..." },
+  { "title": "Verificar y medir resultados contra la meta..." }
+]
+`;
+
+  const effectiveKey = getEffectiveApiKey(apiKey);
+
+  try {
+    let rawText = '';
+    if (!effectiveKey) {
+      rawText = await queryOllamaFallback(prompt, true);
+    } else {
+      const data = await callGeminiAPI(effectiveKey, {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 512,
+        },
+      });
+      rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    const parsed = extractAndParseJSON(rawText);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((item: any) => ({
+        title: typeof item === 'string' ? item : item.title || item.task || 'Ejecutar tarea',
+        completed: false,
+      }));
+    }
+    throw new Error('JSON de subtareas inválido');
+  } catch (error) {
+    console.warn('Error in generateLeanSubtasks, using algorithmic Lean fallback:', error);
+    // Fallback enriquecido de subtareas Lean estándar
+    const cleanAction = actionWhat.replace(/^(implementar|realizar|hacer|crear)\s+/i, '').trim();
+    return [
+      {
+        title: `Definir estándar y procedimiento operativo para ${cleanAction.slice(0, 35)}`,
+        completed: false,
+      },
+      {
+        title: `Capacitar a los líderes y operadores de turno`,
+        completed: false,
+      },
+      {
+        title: `Ejecutar prueba piloto en puesto de trabajo`,
+        completed: false,
+      },
+      {
+        title: `Verificar resultados de eficacia y auditar cumplimiento`,
+        completed: false,
+      },
+    ];
+  }
+};
+
 export default {
   prepareCompanyData,
   generateAIInsight,
   sendChatMessage,
   shouldGenerateNewInsight,
   generateQuickWinSolution,
+  improveLeanActionWording,
+  generateLeanSubtasks,
 };
+

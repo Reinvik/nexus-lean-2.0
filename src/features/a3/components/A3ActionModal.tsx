@@ -13,8 +13,23 @@ import {
   ListTodo,
   Layers,
   Sparkles,
+  AlertTriangle,
+  Save,
+  AlertCircle,
+  Wand2,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import type { A3ActionPlanItem, A3Subtask, A3PlanGroup } from '../../../types';
+import {
+  improveLeanActionWording,
+  generateLeanSubtasks,
+} from '../../../services/geminiService';
+import {
+  startsWithActionVerb,
+  formatWithActionVerb,
+  COMMON_LEAN_VERBS,
+  COMMON_SUBTASK_VERBS,
+} from '../utils/leanActionVerbs';
 
 interface A3ActionModalProps {
   isOpen: boolean;
@@ -25,6 +40,8 @@ interface A3ActionModalProps {
   planGroups: A3PlanGroup[];
   activePlanId: string;
   countermeasures?: string[];
+  projectGoal?: string;
+  rootCause?: string;
 }
 
 export const A3ActionModal: React.FC<A3ActionModalProps> = ({
@@ -36,6 +53,8 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
   planGroups,
   activePlanId,
   countermeasures = [],
+  projectGoal,
+  rootCause,
 }) => {
   const [formData, setFormData] = useState<A3ActionPlanItem>({
     id: Date.now(),
@@ -52,22 +71,30 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
     countermeasures: [],
   });
 
+  const [initialData, setInitialData] = useState<A3ActionPlanItem | null>(null);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [isPolishingWording, setIsPolishingWording] = useState(false);
+  const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
+
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newSubtaskWho, setNewSubtaskWho] = useState('');
   const [newSubtaskDate, setNewSubtaskDate] = useState('');
 
   useEffect(() => {
+    setShowConfirmClose(false);
     if (actionToEdit) {
-      setFormData({
+      const init: A3ActionPlanItem = {
         ...actionToEdit,
         what: actionToEdit.what || actionToEdit.activity || '',
         who: actionToEdit.who || actionToEdit.responsible || '',
         when: actionToEdit.when || actionToEdit.date || new Date().toISOString().split('T')[0],
         planId: actionToEdit.planId || activePlanId,
-        subtasks: actionToEdit.subtasks || [],
-      });
+        subtasks: actionToEdit.subtasks ? JSON.parse(JSON.stringify(actionToEdit.subtasks)) : [],
+      };
+      setFormData(init);
+      setInitialData(init);
     } else {
-      setFormData({
+      const init: A3ActionPlanItem = {
         id: Date.now(),
         planId: activePlanId,
         what: '',
@@ -80,20 +107,64 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
         status: 'pending',
         subtasks: [],
         countermeasures: [],
-      });
+      };
+      setFormData(init);
+      setInitialData(init);
     }
     setNewSubtaskTitle('');
+    setNewSubtaskWho('');
+    setNewSubtaskDate('');
   }, [actionToEdit, activePlanId, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleAddSubtask = (e?: React.FormEvent) => {
+  // Comprueba si el usuario tiene cambios sin guardar
+  const isFormDirty = (): boolean => {
+    if (!initialData) return false;
+    if (formData.what.trim() !== (initialData.what || '').trim()) return true;
+    if ((formData.why || '').trim() !== (initialData.why || '').trim()) return true;
+    if ((formData.how || '').trim() !== (initialData.how || '').trim()) return true;
+    if ((formData.where || '').trim() !== (initialData.where || '').trim()) return true;
+    if ((formData.howMuch || '').trim() !== (initialData.howMuch || '').trim()) return true;
+    if (formData.who !== initialData.who) return true;
+    if (formData.planId !== initialData.planId) return true;
+    if (formData.status !== initialData.status) return true;
+    if (newSubtaskTitle.trim().length > 0) return true;
+
+    // Subtareas agregadas o removidas
+    const currentSubs = formData.subtasks || [];
+    const initSubs = initialData.subtasks || [];
+    if (currentSubs.length !== initSubs.length) return true;
+    for (let i = 0; i < currentSubs.length; i++) {
+      if (currentSubs[i].title !== initSubs[i]?.title) return true;
+      if (currentSubs[i].completed !== initSubs[i]?.completed) return true;
+    }
+
+    return false;
+  };
+
+  // Manejador seguro para cerrar con confirmación
+  const handleRequestClose = () => {
+    if (isFormDirty()) {
+      setShowConfirmClose(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleDiscardAndClose = () => {
+    setShowConfirmClose(false);
+    onClose();
+  };
+
+  const handleAddSubtask = (e?: React.FormEvent, customTitle?: string) => {
     if (e) e.preventDefault();
-    if (!newSubtaskTitle.trim()) return;
+    const titleToAdd = (customTitle || newSubtaskTitle).trim();
+    if (!titleToAdd) return;
 
     const newSub: A3Subtask = {
       id: Date.now() + Math.random(),
-      title: newSubtaskTitle.trim(),
+      title: titleToAdd,
       completed: false,
       responsible: newSubtaskWho.trim() || undefined,
       dueDate: newSubtaskDate || undefined,
@@ -116,14 +187,16 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveAndClose = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!formData.what.trim()) {
-      alert('El campo "Qué (What)" es obligatorio.');
+      toast.error('El campo "¿QUÉ se va a hacer?" es obligatorio.');
+      setShowConfirmClose(false);
       return;
     }
     if (!formData.who.trim()) {
-      alert('Debes asignar un responsable a la acción.');
+      toast.error('Debes asignar un responsable a la acción.');
+      setShowConfirmClose(false);
       return;
     }
 
@@ -140,24 +213,107 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
     onSave({
       ...formData,
       planName: targetPlan?.name || formData.planName || undefined,
-      // Backwards compatibility aliases
       activity: formData.what,
       responsible: formData.who,
       date: formData.when,
       progress,
     });
+    setShowConfirmClose(false);
     onClose();
   };
+
+  // Aplicar verbo rápido a la acción
+  const handleApplyVerbToAction = (verb: string) => {
+    if (!formData.what.trim()) {
+      setFormData({ ...formData, what: `${verb} ` });
+    } else {
+      setFormData({ ...formData, what: formatWithActionVerb(formData.what, verb) });
+    }
+  };
+
+  // Pulir redacción con IA
+  const handleAIPolishWording = async () => {
+    if (!formData.what.trim()) {
+      toast.error('Escribe primero una idea o borrador de la acción para pulirla.');
+      return;
+    }
+    setIsPolishingWording(true);
+    try {
+      const polished = await improveLeanActionWording(formData.what, {
+        why: formData.why,
+        goal: projectGoal,
+      });
+      if (polished && polished.trim()) {
+        setFormData((prev) => ({ ...prev, what: polished }));
+        toast.success('¡Redacción mejorada con verbo de acción Lean!');
+      }
+    } catch (err: any) {
+      toast.error('No se pudo pulir la redacción con IA.');
+    } finally {
+      setIsPolishingWording(false);
+    }
+  };
+
+  // Proponer subtareas con IA
+  const handleAIGenerateSubtasks = async () => {
+    if (!formData.what.trim()) {
+      toast.error('Define primero el "¿QUÉ se va a hacer?" para proponer subtareas acordes.');
+      return;
+    }
+    setIsGeneratingSubtasks(true);
+    try {
+      const suggested = await generateLeanSubtasks(formData.what, {
+        why: formData.why,
+        projectGoal,
+        rootCause,
+        countermeasure: formData.countermeasure,
+      });
+
+      if (suggested && suggested.length > 0) {
+        const formattedSubs: A3Subtask[] = suggested.map((s) => ({
+          id: Date.now() + Math.random(),
+          title: s.title,
+          completed: false,
+          responsible: formData.who || undefined,
+          dueDate: formData.when || undefined,
+        }));
+
+        setFormData((prev) => ({
+          ...prev,
+          subtasks: [...(prev.subtasks || []), ...formattedSubs],
+        }));
+        toast.success(`Se agregaron ${suggested.length} subtareas con estándar Lean.`);
+      }
+    } catch (err: any) {
+      toast.error('No se pudieron generar subtareas automáticas.');
+    } finally {
+      setIsGeneratingSubtasks(false);
+    }
+  };
+
+  // Aplicar verbo rápido a subtarea
+  const handleApplyVerbToSubtask = (verb: string) => {
+    if (!newSubtaskTitle.trim()) {
+      setNewSubtaskTitle(`${verb} `);
+    } else {
+      setNewSubtaskTitle(formatWithActionVerb(newSubtaskTitle, verb));
+    }
+  };
+
+  const verbAnalysis = startsWithActionVerb(formData.what);
 
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        // Prevenir cierre accidental por click fuera
+        if (e.target === e.currentTarget) {
+          handleRequestClose();
+        }
       }}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -178,15 +334,16 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleRequestClose}
             className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors"
+            title="Cerrar ventana"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        <form onSubmit={handleSaveAndClose} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
           {/* Plan Selector & Status */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
             <div>
@@ -233,17 +390,69 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
 
             {/* 1. WHAT */}
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
-                1. ¿QUÉ se va a hacer? (What) <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                <label className="block text-xs font-bold text-slate-800">
+                  1. ¿QUÉ se va a hacer? (What) <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  disabled={!formData.what.trim() || isPolishingWording}
+                  onClick={handleAIPolishWording}
+                  className="text-[11px] font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg border border-brand-200 flex items-center gap-1 transition-colors disabled:opacity-50"
+                  title="Mejora la redacción asegurando que inicie con un verbo de acción"
+                >
+                  <Sparkles size={12} className={isPolishingWording ? 'animate-spin text-brand-600' : 'text-brand-600'} />
+                  <span>{isPolishingWording ? 'Pulir redacción...' : '✨ Pulir con Consultor IA'}</span>
+                </button>
+              </div>
+
               <textarea
                 rows={2}
                 required
                 value={formData.what}
                 onChange={(e) => setFormData({ ...formData, what: e.target.value })}
-                placeholder="Describe con claridad la acción concreta a ejecutar..."
+                placeholder="Ej: Implementar tablero de control visual Heijunka en andenes..."
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
               />
+
+              {/* Indicador de Verbo de Acción Lean & Verbos Rápidos */}
+              <div className="mt-1.5 space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {formData.what.trim() ? (
+                    verbAnalysis.isValid ? (
+                      <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1.5">
+                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                        <span>Verbo de acción detectado: <strong>{verbAnalysis.firstWord}</strong></span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 flex items-center gap-1.5">
+                        <AlertCircle size={13} className="text-amber-600 shrink-0" />
+                        <span>Recomendación Lean: Los planes deben iniciar con un verbo en infinitivo (ej: Implementar, Estandarizar)</span>
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-[11px] text-slate-400">
+                      Estándar Lean: Toda acción debe iniciar con un verbo de acción observable.
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 overflow-x-auto py-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+                    Verbos sugeridos:
+                  </span>
+                  {COMMON_LEAN_VERBS.slice(0, 8).map((verb) => (
+                    <button
+                      key={verb}
+                      type="button"
+                      onClick={() => handleApplyVerbToAction(verb)}
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-600 border border-slate-200 transition-colors shrink-0"
+                    >
+                      +{verb}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* 2. WHY */}
@@ -254,126 +463,108 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                   <span>2. ¿POR QUÉ se hace? (Why)</span>
                 </label>
                 {countermeasures.length > 0 && (
-                  <span className="text-[11px] text-slate-400">
-                    O vincula a una contramedida detectada
-                  </span>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setFormData({
+                          ...formData,
+                          why: `Mitigar causa: ${e.target.value}`,
+                          countermeasure: e.target.value,
+                        });
+                      }
+                    }}
+                    className="text-[11px] text-brand-600 bg-brand-50/50 border border-brand-200 rounded px-2 py-0.5 outline-none font-medium cursor-pointer"
+                  >
+                    <option value="">Vincular a contramedida detectada...</option>
+                    {countermeasures.map((c, i) => (
+                      <option key={i} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </div>
-              <input
-                type="text"
-                value={formData.why || ''}
+              <textarea
+                rows={2}
+                value={formData.why}
                 onChange={(e) => setFormData({ ...formData, why: e.target.value })}
-                placeholder="Justificación, causa raíz que neutraliza o impacto esperado..."
-                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none mb-1.5 shadow-sm"
+                placeholder="Propósito, causa raíz a neutralizar o beneficio esperado..."
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
               />
-              {countermeasures.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {countermeasures.slice(0, 4).map((cm, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          why: cm,
-                          countermeasures: [cm],
-                        }))
-                      }
-                      className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[11px] font-medium border border-indigo-200 truncate max-w-xs transition-colors"
-                      title={cm}
-                    >
-                      + Usar: {cm}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* WHO, WHEN, WHERE Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* 3. WHO */}
+            {/* 3. WHO & 4. WHEN */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
                   <User size={13} className="text-slate-400" />
-                  <span>3. ¿QUIÉN lo hará? (Who)</span> <span className="text-rose-500">*</span>
+                  <span>3. ¿QUIÉN es el responsable? (Who) <span className="text-rose-500">*</span></span>
                 </label>
-                {users.length > 0 ? (
-                  <input
-                    type="text"
-                    list="users-list"
-                    required
-                    value={formData.who}
-                    onChange={(e) => setFormData({ ...formData, who: e.target.value })}
-                    placeholder="Responsable directo..."
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    required
-                    value={formData.who}
-                    onChange={(e) => setFormData({ ...formData, who: e.target.value })}
-                    placeholder="Responsable directo..."
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
-                  />
-                )}
-                <datalist id="users-list">
+                <input
+                  type="text"
+                  required
+                  list="modal-users-list"
+                  value={formData.who}
+                  onChange={(e) => setFormData({ ...formData, who: e.target.value })}
+                  placeholder="Nombre del líder de esta acción..."
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500 outline-none shadow-sm"
+                />
+                <datalist id="modal-users-list">
                   {users.map((u, i) => (
                     <option key={i} value={u.name} />
                   ))}
                 </datalist>
               </div>
 
-              {/* 4. WHEN */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
                   <Calendar size={13} className="text-slate-400" />
-                  <span>4. ¿CUÁNDO se cumplirá? (When)</span> <span className="text-rose-500">*</span>
+                  <span>4. ¿CUÁNDO se cumplirá? (When) <span className="text-rose-500">*</span></span>
                 </label>
                 <input
                   type="date"
                   required
                   value={formData.when}
                   onChange={(e) => setFormData({ ...formData, when: e.target.value })}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-brand-500 outline-none shadow-sm"
                 />
               </div>
+            </div>
 
-              {/* 5. WHERE */}
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
-                  <MapPin size={13} className="text-slate-400" />
-                  <span>5. ¿DÓNDE se aplicará? (Where)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.where || ''}
-                  onChange={(e) => setFormData({ ...formData, where: e.target.value })}
-                  placeholder="Área, línea, puesto o máquina..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
-                />
-              </div>
+            {/* 5. WHERE */}
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+                <MapPin size={13} className="text-slate-400" />
+                <span>5. ¿DÓNDE se ejecutará? (Where)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.where}
+                onChange={(e) => setFormData({ ...formData, where: e.target.value })}
+                placeholder="Línea 2, Bodega central, Andén 4, Gemba..."
+                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500 outline-none shadow-sm"
+              />
             </div>
           </div>
 
           {/* Section: The 2 H's */}
-          <div className="space-y-4">
+          <div className="space-y-4 pt-2 border-t border-slate-200">
             <h3 className="text-xs font-black uppercase tracking-wider text-indigo-700 flex items-center gap-1.5 border-b border-indigo-100 pb-1.5">
-              <span>Dimensión 2H (How, How Much)</span>
+              <span>Dimensión 2H (How & How Much)</span>
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* HOW */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">
-                  6. ¿CÓMO se ejecutará? (How - Método / Estándar)
+                  6. ¿CÓMO se llevará a cabo? (How)
                 </label>
                 <textarea
                   rows={2}
-                  value={formData.how || ''}
+                  value={formData.how}
                   onChange={(e) => setFormData({ ...formData, how: e.target.value })}
-                  placeholder="Procedimiento, estándar POE, herramientas o especificaciones técnicas..."
-                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
+                  placeholder="Metodología, estándar o procedimiento a aplicar..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
                 />
               </div>
 
@@ -381,75 +572,107 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
                   <DollarSign size={13} className="text-slate-400" />
-                  <span>7. ¿CUÁNTO costará? (How Much - Presupuesto / Recursos)</span>
+                  <span>7. ¿CUÁNTO costará o requerirá? (How Much)</span>
                 </label>
                 <textarea
                   rows={2}
-                  value={formData.howMuch || ''}
+                  value={formData.howMuch}
                   onChange={(e) => setFormData({ ...formData, howMuch: e.target.value })}
-                  placeholder="Ej: $150.000 CLP, 4 horas de mantenimiento o materiales..."
-                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none shadow-sm"
+                  placeholder="Presupuesto, horas hombre o $0 (Quick Win / Sin costo)..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
                 />
               </div>
             </div>
           </div>
 
-          {/* Section: Subtasks (Subtareas para lograr la acción) */}
-          <div className="space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                <ListTodo size={15} className="text-brand-600" />
-                <span>Subtareas Operativas ({(formData.subtasks || []).length})</span>
-              </label>
-              <span className="text-[11px] text-slate-400">
-                Divide esta acción en pasos concretos para medir el avance
-              </span>
+          {/* Section: Subtasks Operativas (Subtareas con IA) */}
+          <div className="space-y-3 pt-2 border-t border-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <label className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                  <ListTodo size={15} className="text-brand-600" />
+                  <span>Subtareas Operativas ({(formData.subtasks || []).length})</span>
+                </label>
+                <span className="text-[11px] text-slate-400">
+                  Desglosa la acción en pasos secuenciales que inicien con verbo de acción
+                </span>
+              </div>
+
+              <button
+                type="button"
+                disabled={!formData.what.trim() || isGeneratingSubtasks}
+                onClick={handleAIGenerateSubtasks}
+                className="text-xs font-bold text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-xs"
+                title="Genera subtareas automáticamente basadas en la acción"
+              >
+                <Sparkles size={13} className={isGeneratingSubtasks ? 'animate-spin text-indigo-600' : 'text-indigo-600'} />
+                <span>{isGeneratingSubtasks ? 'Generando...' : '✨ Proponer subtareas con IA'}</span>
+              </button>
             </div>
 
             {/* Quick add subtask row */}
-            <div className="flex flex-wrap sm:flex-nowrap gap-2">
-              <input
-                type="text"
-                placeholder="Escribe el nombre de la subtarea..."
-                value={newSubtaskTitle}
-                onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddSubtask();
-                  }
-                }}
-                className="flex-1 px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm placeholder:text-slate-400"
-              />
-              <input
-                type="text"
-                placeholder="Responsable (opc)"
-                value={newSubtaskWho}
-                onChange={(e) => setNewSubtaskWho(e.target.value)}
-                className="w-32 px-2.5 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm placeholder:text-slate-400"
-              />
-              <input
-                type="date"
-                value={newSubtaskDate}
-                onChange={(e) => setNewSubtaskDate(e.target.value)}
-                className="w-32 px-2 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm"
-              />
-              <button
-                type="button"
-                onClick={() => handleAddSubtask()}
-                disabled={!newSubtaskTitle.trim()}
-                className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 shadow-sm transition-colors"
-              >
-                <Plus size={14} />
-                <span>Agregar</span>
-              </button>
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                <input
+                  type="text"
+                  placeholder="Escribe el nombre de la subtarea (ej: Definir estándar...)"
+                  value={newSubtaskTitle}
+                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddSubtask();
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm placeholder:text-slate-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Responsable (opc)"
+                  value={newSubtaskWho}
+                  onChange={(e) => setNewSubtaskWho(e.target.value)}
+                  className="w-32 px-2.5 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm placeholder:text-slate-400"
+                />
+                <input
+                  type="date"
+                  value={newSubtaskDate}
+                  onChange={(e) => setNewSubtaskDate(e.target.value)}
+                  className="w-32 px-2 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAddSubtask()}
+                  disabled={!newSubtaskTitle.trim()}
+                  className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 shadow-sm transition-colors"
+                >
+                  <Plus size={14} />
+                  <span>Agregar</span>
+                </button>
+              </div>
+
+              {/* Subtask Verbs Pills */}
+              <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+                  Verbo subtarea:
+                </span>
+                {COMMON_SUBTASK_VERBS.map((verb) => (
+                  <button
+                    key={verb}
+                    type="button"
+                    onClick={() => handleApplyVerbToSubtask(verb)}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-600 border border-slate-200 transition-colors shrink-0"
+                  >
+                    +{verb}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Subtasks items list */}
             <div className="space-y-1.5 max-h-48 overflow-y-auto pt-1">
               {(formData.subtasks || []).length === 0 ? (
                 <p className="text-[11px] text-slate-400 italic py-2">
-                  No hay subtareas añadidas. Puedes crearlas ahora o en el panel interactivo del plan.
+                  No hay subtareas añadidas. Puedes añadirlas o usar "Proponer subtareas con IA".
                 </p>
               ) : (
                 formData.subtasks?.map((sub, idx) => (
@@ -508,7 +731,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleRequestClose}
                 className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
               >
                 Cancelar
@@ -522,6 +745,51 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
             </div>
           </div>
         </form>
+
+        {/* Modal de confirmación ante cierre con cambios sin guardar */}
+        {showConfirmClose && (
+          <div className="absolute inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  ¿Deseas guardar los cambios antes de salir?
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Tienes información escrita en esta acción 5W2H que no ha sido guardada.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveAndClose}
+                  className="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Save size={15} />
+                  <span>Guardar y Salir</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDiscardAndClose}
+                  className="w-full py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 size={15} />
+                  <span>Descartar Cambios</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmClose(false)}
+                  className="w-full py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+                >
+                  Continuar Editando
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>,
     document.body

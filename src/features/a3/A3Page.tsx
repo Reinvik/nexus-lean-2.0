@@ -1518,6 +1518,8 @@ export const A3Page: React.FC = () => {
                     isSaving={isAutoSaving}
                     lastSavedAt={lastSavedAt}
                     onShareEmail={() => setIsShareModalOpen(true)}
+                    projectGoal={selectedA3.goal}
+                    rootCause={selectedA3.rootCause || selectedA3.root_cause}
                   />
                 </div>
               )}
