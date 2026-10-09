@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, ShieldCheck, Edit2, Check, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { improveA3FieldText } from '../../../services/geminiService';
 
 interface CountermeasureItem {
   id: number | string;
@@ -10,16 +12,40 @@ interface A3CountermeasureManagerProps {
   items?: CountermeasureItem[];
   onChange: (items: CountermeasureItem[]) => void;
   onSendTo5W2H?: (title: string) => void;
+  rootCause?: string;
 }
 
 export const A3CountermeasureManager: React.FC<A3CountermeasureManagerProps> = ({
   items = [],
   onChange,
   onSendTo5W2H,
+  rootCause,
 }) => {
   const [newTitle, setNewTitle] = useState('');
   const [editingId, setEditingId] = useState<number | string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [isPolishing, setIsPolishing] = useState(false);
+
+  const handleAIPolish = async () => {
+    if (!newTitle.trim()) {
+      toast.error('Escribe primero una idea o borrador de la contramedida para pulirla.');
+      return;
+    }
+    setIsPolishing(true);
+    try {
+      const polished = await improveA3FieldText('countermeasure', newTitle, {
+        rootCause: rootCause,
+      });
+      if (polished && polished.trim()) {
+        setNewTitle(polished);
+        toast.success('✨ Contramedida optimizada con estándar Lean');
+      }
+    } catch (err: any) {
+      toast.error('No se pudo pulir la contramedida con IA.');
+    } finally {
+      setIsPolishing(false);
+    }
+  };
 
   const handleAdd = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -84,6 +110,16 @@ export const A3CountermeasureManager: React.FC<A3CountermeasureManagerProps> = (
           placeholder="Escribe una nueva contramedida (ej: Instalar poka-yoke en sensor de llenado)..."
           className="flex-1 px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white text-slate-800 placeholder-slate-400"
         />
+        <button
+          type="button"
+          disabled={!newTitle.trim() || isPolishing}
+          onClick={handleAIPolish}
+          className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+          title="Optimiza la redacción con verbo en infinitivo según estándar Lean"
+        >
+          <Sparkles size={13} className={isPolishing ? 'animate-spin' : ''} />
+          <span>{isPolishing ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
+        </button>
         <button
           type="submit"
           disabled={!newTitle.trim()}

@@ -755,6 +755,198 @@ Responde ÚNICAMENTE con la frase reescrita, sin explicaciones adicionales ni co
   }
 };
 
+export type A3FieldType =
+  | 'background'
+  | 'current_condition'
+  | 'goal'
+  | 'root_cause'
+  | 'countermeasure'
+  | 'action_what'
+  | 'action_why'
+  | 'action_how'
+  | 'follow_up';
+
+/**
+ * Corrige y optimiza con IA cualquier sección de un reporte A3 Toyota o plan de acción 5W2H
+ * garantizando estándares estrictos de Lean Manufacturing y Kaizen.
+ */
+export const improveA3FieldText = async (
+  fieldType: A3FieldType,
+  currentText: string,
+  context?: {
+    projectTitle?: string;
+    goal?: string;
+    rootCause?: string;
+    background?: string;
+    currentCondition?: string;
+    countermeasure?: string;
+  },
+  apiKey?: string
+): Promise<string> => {
+  // Limpiar posibles etiquetas HTML para lectura del modelo
+  const cleanInput = (currentText || '').replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+  const title = context?.projectTitle || 'Optimización Operativa';
+
+  let prompt = '';
+
+  switch (fieldType) {
+    case 'background':
+      prompt = `Eres un consultor senior en Lean Manufacturing y Toyota A3.
+Mejora y profesionaliza la sección "Antecedentes del Negocio (Contexto y Relevancia Operativa)" de un reporte A3.
+Título del Proyecto: "${title}"
+${cleanInput ? `Borrador del usuario: "${cleanInput}"` : 'El usuario aún no ha escrito antecedentes.'}
+
+REGLAS OBLIGATORIAS:
+1. Explica de forma ejecutiva por qué este problema debe resolverse con urgencia (impacto financiero, servicio al cliente, cuellos de botella, calidad o seguridad).
+2. Tono formal, contundente y enfocado en la estrategia del negocio.
+3. Máximo 2 párrafos concisos y bien estructurados.
+4. Responde ÚNICAMENTE con el texto en español, sin saludos, sin explicaciones ni comillas.`;
+      break;
+
+    case 'current_condition':
+      prompt = `Eres un consultor senior en Lean Manufacturing y Toyota A3.
+Mejora la sección "Condición Actual (Situación de Partida en el Gemba)" de un reporte A3.
+Título del Proyecto: "${title}"
+${context?.background ? `Contexto del problema: "${context.background}"` : ''}
+${cleanInput ? `Borrador del usuario: "${cleanInput}"` : 'El usuario aún no ha escrito la condición actual.'}
+
+REGLAS OBLIGATORIAS:
+1. Muestra la situación real con rigor objetivo, fáctico y medible (línea base, indicadores, desviaciones respecto al estándar).
+2. No juzgues causas ni culpes a personas; describe hechos observables en el Gemba.
+3. Si el usuario aportó números o porcentajes, consérvalos y organízalos con claridad.
+4. Máximo 2 párrafos concisos.
+5. Responde ÚNICAMENTE con el texto en español, sin explicaciones ni comillas.`;
+      break;
+
+    case 'goal':
+      prompt = `Eres un consultor senior en Lean Manufacturing y Toyota A3.
+Redacta o reformula el "Objetivo / Meta SMART" del reporte A3.
+Título del Proyecto: "${title}"
+${context?.currentCondition ? `Condición actual / línea base: "${context.currentCondition}"` : ''}
+${cleanInput ? `Meta propuesta por el usuario: "${cleanInput}"` : 'Genera una meta SMART representativa para este proyecto.'}
+
+REGLAS OBLIGATORIAS:
+1. Debe ser rigurosamente SMART (Específico, Medible, Alcanzable, Relevante y con Fecha límite).
+2. Inicia OBLIGATORIAMENTE con un verbo de impacto medible (ej: Reducir, Aumentar, Eliminar, Disminuir).
+3. Debe seguir la fórmula: [Verbo] [Indicador clave] de [Línea base actual] a [Meta deseada] para [Plazo o fecha estimada], logrando [Impacto de negocio esperado].
+4. Máximo 2 oraciones directas y enérgicas.
+5. Responde ÚNICAMENTE con el texto del objetivo SMART, sin explicaciones ni comillas.`;
+      break;
+
+    case 'root_cause':
+      prompt = `Eres un consultor experto en análisis de causa raíz Lean (Ishikawa y 5 Porqués).
+Formula con precisión técnica la "Causa Raíz Validada (Conclusión)" para el A3.
+Título del Proyecto: "${title}"
+${context?.goal ? `Meta del proyecto: "${context.goal}"` : ''}
+${cleanInput ? `Idea de causa del usuario: "${cleanInput}"` : 'Sintetiza la causa raíz sistémica.'}
+
+REGLAS OBLIGATORIAS:
+1. La causa raíz debe apuntar a fallas en el proceso, estándar operativo, método o diseño del sistema.
+2. NUNCA culpar a personas, falta de capacitación genérica o falta de atención.
+3. Redacta de forma clara, directa y concluyente en 1 o 2 oraciones.
+4. Responde ÚNICAMENTE con la causa raíz formulada, sin explicaciones ni comillas.`;
+      break;
+
+    case 'countermeasure':
+      prompt = `Eres un consultor senior en Lean Manufacturing y Kaizen.
+Mejora la redacción de esta contramedida para erradicar la causa raíz:
+${context?.rootCause ? `Causa raíz a erradicar: "${context.rootCause}"` : ''}
+Borrador de contramedida: "${cleanInput || 'Nueva contramedida'}"
+
+REGLAS OBLIGATORIAS:
+1. Inicia OBLIGATORIAMENTE con un verbo de acción en infinitivo (ej: Instalar, Estandarizar, Diseñar, Implementar, Calibrar).
+2. Debe ser preventiva, duradera (tipo poka-yoke o control visual) y concreta en el Gemba.
+3. Máximo 15 palabras.
+4. Responde ÚNICAMENTE con la contramedida redactada, sin comillas.`;
+      break;
+
+    case 'action_what':
+      return improveLeanActionWording(currentText, { why: context?.background, goal: context?.goal }, apiKey);
+
+    case 'action_why':
+      prompt = `Eres un consultor experto en Lean Manufacturing.
+Mejora la justificación o propósito (¿Por qué?) de esta acción de un plan 5W2H:
+Texto original: "${cleanInput}"
+${context?.goal ? `Meta del A3: "${context.goal}"` : ''}
+${context?.rootCause ? `Causa raíz a mitigar: "${context.rootCause}"` : ''}
+
+REGLAS OBLIGATORIAS:
+1. Explica brevemente qué desperdicio (muda) elimina, qué riesgo previene o qué beneficio directo aporta.
+2. Directo, profesional y persuasivo. Máximo 20 palabras.
+3. Responde ÚNICAMENTE con la frase mejorada, sin comillas.`;
+      break;
+
+    case 'action_how':
+      prompt = `Eres un consultor experto en Lean Manufacturing.
+Mejora el método o procedimiento de ejecución (¿Cómo?) de esta acción 5W2H:
+Texto original: "${cleanInput}"
+
+REGLAS OBLIGATORIAS:
+1. Describe de forma técnica y ejecutable el procedimiento operativo a seguir paso a paso.
+2. Máximo 25 palabras.
+3. Responde ÚNICAMENTE con la frase mejorada, sin comillas.`;
+      break;
+
+    case 'follow_up':
+      prompt = `Eres un consultor senior en Lean Manufacturing y Yokoten (despliegue horizontal).
+Redacta o perfecciona la sección "Estandarización y Lecciones Aprendidas (Yokoten)" de un reporte A3.
+Proyecto: "${title}"
+${cleanInput ? `Notas del usuario: "${cleanInput}"` : 'Estructura el plan de sostenimiento.'}
+
+REGLAS OBLIGATORIAS:
+1. Debe incluir: actualización de POE/estándar operativo, frecuencia de auditorías de confirmación (Kamishibai o 5S), y replicación en otras líneas o áreas.
+2. Máximo 2 párrafos concisos y orientados al sostenimiento de la disciplina operacional.
+3. Responde ÚNICAMENTE con el texto redactado en español, sin explicaciones ni comillas.`;
+      break;
+  }
+
+  const effectiveKey = getEffectiveApiKey(apiKey);
+
+  try {
+    let rawResult = '';
+    if (!effectiveKey) {
+      rawResult = await queryOllamaFallback(prompt);
+    } else {
+      const data = await callGeminiAPI(effectiveKey, {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 600,
+        },
+      });
+      rawResult = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    if (!rawResult || !rawResult.trim()) {
+      throw new Error('Respuesta vacía');
+    }
+
+    let cleaned = rawResult.trim().replace(/^["']|["']$/g, '');
+
+    if (['background', 'current_condition', 'follow_up'].includes(fieldType)) {
+      if (!/<[a-z][\s\S]*>/i.test(cleaned)) {
+        const paragraphs = cleaned
+          .split(/\n\s*\n/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+        if (paragraphs.length > 1) {
+          cleaned = paragraphs.map((p) => `<p>${p}</p>`).join('');
+        }
+      }
+    }
+
+    return cleaned;
+  } catch (error) {
+    console.warn(`Error in improveA3FieldText (${fieldType}), trying fallback:`, error);
+    try {
+      const fallbackRes = await queryOllamaFallback(prompt);
+      return fallbackRes.trim().replace(/^["']|["']$/g, '');
+    } catch {
+      return currentText || `Definir estándar para ${title}`;
+    }
+  }
+};
+
 /**
  * Propone subtareas operativas concretas siguiendo el ciclo PDCA (Plan, Do, Check, Act)
  * para completar un plan de acción 5W2H.
@@ -848,6 +1040,7 @@ export default {
   shouldGenerateNewInsight,
   generateQuickWinSolution,
   improveLeanActionWording,
+  improveA3FieldText,
   generateLeanSubtasks,
 };
 

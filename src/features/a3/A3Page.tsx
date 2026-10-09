@@ -49,6 +49,7 @@ import A3ActionPlan5W2H from './components/A3ActionPlan5W2H';
 import A3BoardView from './components/A3BoardView';
 import A3ShareModal from './components/A3ShareModal';
 import RichTextEditor from '../../components/common/RichTextEditor';
+import { improveA3FieldText, type A3FieldType } from '../../services/geminiService';
 
 export const A3Page: React.FC = () => {
   const { user, globalFilterCompanyId, companies } = useAuth();
@@ -63,6 +64,7 @@ export const A3Page: React.FC = () => {
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [polishingA3Field, setPolishingA3Field] = useState<string | null>(null);
 
   // Refs for auto-saving
   const selectedA3Ref = useRef<A3Project | null>(null);
@@ -667,6 +669,60 @@ export const A3Page: React.FC = () => {
 
     if (selectedA3Ref.current?.id) {
       debouncedSaveProject();
+    }
+  };
+
+  // IA - Corrección y optimización Lean de secciones del A3
+  const handleAICorrectField = async (
+    field: 'background' | 'currentCondition' | 'goal' | 'rootCause' | 'followUp'
+  ) => {
+    if (!selectedA3) return;
+
+    let currentValue = '';
+    let fieldType: A3FieldType = 'background';
+    let fieldLabel = 'Antecedentes';
+
+    if (field === 'background') {
+      currentValue = selectedA3.background || '';
+      fieldType = 'background';
+      fieldLabel = 'Antecedentes';
+    } else if (field === 'currentCondition') {
+      currentValue = selectedA3.currentCondition || selectedA3.current_condition || '';
+      fieldType = 'current_condition';
+      fieldLabel = 'Condición Actual';
+    } else if (field === 'goal') {
+      currentValue = selectedA3.goal || '';
+      fieldType = 'goal';
+      fieldLabel = 'Objetivo SMART';
+    } else if (field === 'rootCause') {
+      currentValue = selectedA3.rootCause || selectedA3.root_cause || '';
+      fieldType = 'root_cause';
+      fieldLabel = 'Causa Raíz';
+    } else if (field === 'followUp') {
+      currentValue = selectedA3.followUp || selectedA3.follow_up_notes || '';
+      fieldType = 'follow_up';
+      fieldLabel = 'Estandarización y Lecciones Aprendidas';
+    }
+
+    setPolishingA3Field(field);
+    try {
+      const improved = await improveA3FieldText(fieldType, currentValue, {
+        projectTitle: selectedA3.title,
+        goal: selectedA3.goal,
+        rootCause: selectedA3.rootCause || selectedA3.root_cause,
+        background: selectedA3.background,
+        currentCondition: selectedA3.currentCondition || selectedA3.current_condition,
+      });
+
+      if (improved && improved.trim()) {
+        updateA3Field(field, improved);
+        toast.success(`✨ ${fieldLabel} optimizado con estándar Lean`);
+      }
+    } catch (err: any) {
+      console.error(`Error optimizando ${field} con IA:`, err);
+      toast.error(`No se pudo corregir ${fieldLabel} con IA.`);
+    } finally {
+      setPolishingA3Field(null);
     }
   };
 
@@ -1286,13 +1342,25 @@ export const A3Page: React.FC = () => {
                   {/* Background / Antecedentes */}
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
-                          1
-                        </span>
-                        <h3 className="text-sm font-bold text-slate-800">
-                          Antecedentes del Negocio (Contexto)
-                        </h3>
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
+                            1
+                          </span>
+                          <h3 className="text-sm font-bold text-slate-800">
+                            Antecedentes del Negocio (Contexto)
+                          </h3>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={polishingA3Field === 'background'}
+                          onClick={() => handleAICorrectField('background')}
+                          className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                          title="Mejora y profesionaliza los antecedentes con enfoque de impacto financiero y operativo Lean"
+                        >
+                          <Sparkles size={13} className={polishingA3Field === 'background' ? 'animate-spin' : ''} />
+                          <span>{polishingA3Field === 'background' ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
+                        </button>
                       </div>
                       <p className="text-xs text-slate-500 mb-3">
                         Describe por qué este problema es prioritario: impacto financiero, quejas de clientes, cuellos de botella o seguridad.
@@ -1309,13 +1377,25 @@ export const A3Page: React.FC = () => {
                   {/* Current Condition & Photos */}
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 font-bold text-xs flex items-center justify-center">
-                          2
-                        </span>
-                        <h3 className="text-sm font-bold text-slate-800">
-                          Condición Actual (Situación de Partida)
-                        </h3>
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 font-bold text-xs flex items-center justify-center">
+                            2
+                          </span>
+                          <h3 className="text-sm font-bold text-slate-800">
+                            Condición Actual (Situación de Partida)
+                          </h3>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={polishingA3Field === 'currentCondition'}
+                          onClick={() => handleAICorrectField('currentCondition')}
+                          className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                          title="Estructura la condición actual con hechos medibles en el Gemba"
+                        >
+                          <Sparkles size={13} className={polishingA3Field === 'currentCondition' ? 'animate-spin' : ''} />
+                          <span>{polishingA3Field === 'currentCondition' ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
+                        </button>
                       </div>
                       <p className="text-xs text-slate-500 mb-3">
                         Muestra la realidad con datos cuantitativos, gráficos, diagramas de flujo o fotos de la desviación.
@@ -1366,13 +1446,25 @@ export const A3Page: React.FC = () => {
 
                   {/* Goal / SMART Target Condition (Full Width) */}
                   <div className="lg:col-span-2 bg-gradient-to-br from-emerald-50/70 to-teal-50/70 p-5 rounded-2xl border border-emerald-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-6 h-6 rounded-lg bg-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center">
-                        3
-                      </span>
-                      <h3 className="text-sm font-bold text-emerald-950">
-                        Objetivo / Meta SMART (Condición Deseada)
-                      </h3>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center">
+                          3
+                        </span>
+                        <h3 className="text-sm font-bold text-emerald-950">
+                          Objetivo / Meta SMART (Condición Deseada)
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={polishingA3Field === 'goal'}
+                        onClick={() => handleAICorrectField('goal')}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                        title="Convierte la meta en una fórmula SMART con verbo de impacto, línea base, meta y fecha"
+                      >
+                        <Sparkles size={13} className={polishingA3Field === 'goal' ? 'animate-spin' : ''} />
+                        <span>{polishingA3Field === 'goal' ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
+                      </button>
                     </div>
                     <p className="text-xs text-emerald-800 mb-3">
                       Define la meta específica, medible, alcanzable, relevante y con fecha límite clara.
@@ -1407,13 +1499,25 @@ export const A3Page: React.FC = () => {
                       </div>
                     </div>
 
-                    <input
-                      type="text"
-                      value={selectedA3.rootCause || selectedA3.root_cause || ''}
-                      onChange={(e) => updateA3Field('rootCause', e.target.value)}
-                      placeholder="Escribe la causa raíz principal..."
-                      className="flex-1 min-w-[280px] px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
-                    />
+                    <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+                      <input
+                        type="text"
+                        value={selectedA3.rootCause || selectedA3.root_cause || ''}
+                        onChange={(e) => updateA3Field('rootCause', e.target.value)}
+                        placeholder="Escribe la causa raíz principal..."
+                        className="flex-1 px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
+                      />
+                      <button
+                        type="button"
+                        disabled={polishingA3Field === 'rootCause'}
+                        onClick={() => handleAICorrectField('rootCause')}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+                        title="Formula la causa raíz sistémica sin culpar a personas"
+                      >
+                        <Sparkles size={13} className={polishingA3Field === 'rootCause' ? 'animate-spin' : ''} />
+                        <span>{polishingA3Field === 'rootCause' ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Ishikawa Diagrams */}
@@ -1484,6 +1588,7 @@ export const A3Page: React.FC = () => {
                     items={selectedA3.countermeasureList || selectedA3.countermeasure_list || []}
                     onChange={(items) => updateA3Field('countermeasureList', items)}
                     onSendTo5W2H={handlePromoteTo5W2H}
+                    rootCause={selectedA3.rootCause || selectedA3.root_cause}
                   />
                 </div>
               )}
@@ -1600,13 +1705,25 @@ export const A3Page: React.FC = () => {
 
                   {/* Standardization & Lessons Learned */}
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 font-bold text-xs flex items-center justify-center">
-                        8
-                      </span>
-                      <h3 className="text-sm font-bold text-slate-800">
-                        Estandarización y Lecciones Aprendidas (YOKOTEN)
-                      </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 font-bold text-xs flex items-center justify-center">
+                          8
+                        </span>
+                        <h3 className="text-sm font-bold text-slate-800">
+                          Estandarización y Lecciones Aprendidas (YOKOTEN)
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={polishingA3Field === 'followUp'}
+                        onClick={() => handleAICorrectField('followUp')}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                        title="Estructura los estándares POE, auditorías de sostenimiento y difusión Yokoten"
+                      >
+                        <Sparkles size={13} className={polishingA3Field === 'followUp' ? 'animate-spin' : ''} />
+                        <span>{polishingA3Field === 'followUp' ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
+                      </button>
                     </div>
                     <p className="text-xs text-slate-500">
                       Documenta los estándares actualizados (POE), matrices de habilidades, auditorías de sostenimiento y difusión a otras líneas (Yokoten).

@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import type { A3ActionPlanItem, A3Subtask, A3PlanGroup } from '../../../types';
 import {
   improveLeanActionWording,
+  improveA3FieldText,
   generateLeanSubtasks,
 } from '../../../services/geminiService';
 import {
@@ -74,6 +75,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
   const [initialData, setInitialData] = useState<A3ActionPlanItem | null>(null);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [isPolishingWording, setIsPolishingWording] = useState(false);
+  const [polishingField, setPolishingField] = useState<'what' | 'why' | 'how' | null>(null);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -231,27 +233,38 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
     }
   };
 
-  // Pulir redacción con IA
-  const handleAIPolishWording = async () => {
-    if (!formData.what.trim()) {
-      toast.error('Escribe primero una idea o borrador de la acción para pulirla.');
+  // Corregir y redactar campos con IA (What, Why, How)
+  const handleAICorrect = async (field: 'what' | 'why' | 'how') => {
+    const currentVal = formData[field] || '';
+    if (!currentVal.trim() && field === 'what') {
+      toast.error('Escribe primero una idea o borrador de la acción para que la IA la corrija.');
       return;
     }
-    setIsPolishingWording(true);
+    setPolishingField(field);
     try {
-      const polished = await improveLeanActionWording(formData.what, {
-        why: formData.why,
+      const fieldType =
+        field === 'what' ? 'action_what' : field === 'why' ? 'action_why' : 'action_how';
+      const polished = await improveA3FieldText(fieldType, currentVal, {
+        projectTitle: formData.what || undefined,
         goal: projectGoal,
+        rootCause: rootCause || formData.why,
+        countermeasure: formData.why,
       });
       if (polished && polished.trim()) {
-        setFormData((prev) => ({ ...prev, what: polished }));
-        toast.success('¡Redacción mejorada con verbo de acción Lean!');
+        setFormData((prev) => ({ ...prev, [field]: polished }));
+        const label = field === 'what' ? 'Acción (¿Qué?)' : field === 'why' ? 'Propósito (¿Por qué?)' : 'Método (¿Cómo?)';
+        toast.success(`✨ ${label} corregido con estándar Lean`);
       }
     } catch (err: any) {
-      toast.error('No se pudo pulir la redacción con IA.');
+      toast.error('No se pudo corregir el texto con IA.');
     } finally {
-      setIsPolishingWording(false);
+      setPolishingField(null);
     }
+  };
+
+  // Pulir redacción con IA (compatibilidad)
+  const handleAIPolishWording = async () => {
+    return handleAICorrect('what');
   };
 
   // Proponer subtareas con IA
@@ -396,13 +409,13 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                 </label>
                 <button
                   type="button"
-                  disabled={!formData.what.trim() || isPolishingWording}
-                  onClick={handleAIPolishWording}
-                  className="text-[11px] font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg border border-brand-200 flex items-center gap-1 transition-colors disabled:opacity-50"
-                  title="Mejora la redacción asegurando que inicie con un verbo de acción"
+                  disabled={!formData.what.trim() || polishingField === 'what'}
+                  onClick={() => handleAICorrect('what')}
+                  className="text-[11px] font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 px-2.5 py-1 rounded-lg border border-purple-400 flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                  title="Corrige y redacta la acción con verbo en infinitivo según estándar Lean"
                 >
-                  <Sparkles size={12} className={isPolishingWording ? 'animate-spin text-brand-600' : 'text-brand-600'} />
-                  <span>{isPolishingWording ? 'Pulir redacción...' : '✨ Pulir con Consultor IA'}</span>
+                  <Sparkles size={12} className={polishingField === 'what' ? 'animate-spin' : ''} />
+                  <span>{polishingField === 'what' ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
                 </button>
               </div>
 
@@ -457,32 +470,44 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
 
             {/* 2. WHY */}
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
                 <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
                   <HelpCircle size={13} className="text-slate-400" />
                   <span>2. ¿POR QUÉ se hace? (Why)</span>
                 </label>
-                {countermeasures.length > 0 && (
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setFormData({
-                          ...formData,
-                          why: `Mitigar causa: ${e.target.value}`,
-                          countermeasure: e.target.value,
-                        });
-                      }
-                    }}
-                    className="text-[11px] text-brand-600 bg-brand-50/50 border border-brand-200 rounded px-2 py-0.5 outline-none font-medium cursor-pointer"
+                <div className="flex items-center gap-1.5">
+                  {countermeasures.length > 0 && (
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setFormData({
+                            ...formData,
+                            why: `Mitigar causa: ${e.target.value}`,
+                            countermeasure: e.target.value,
+                          });
+                        }
+                      }}
+                      className="text-[11px] text-brand-600 bg-brand-50/50 border border-brand-200 rounded px-2 py-0.5 outline-none font-medium cursor-pointer"
+                    >
+                      <option value="">Vincular a contramedida...</option>
+                      {countermeasures.map((c, i) => (
+                        <option key={i} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    disabled={polishingField === 'why'}
+                    onClick={() => handleAICorrect('why')}
+                    className="text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                    title="Explica el beneficio Lean y desperdicio que elimina"
                   >
-                    <option value="">Vincular a contramedida detectada...</option>
-                    {countermeasures.map((c, i) => (
-                      <option key={i} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                    <Sparkles size={11} className={polishingField === 'why' ? 'animate-spin' : ''} />
+                    <span>{polishingField === 'why' ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
+                  </button>
+                </div>
               </div>
               <textarea
                 rows={2}
@@ -556,9 +581,21 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* HOW */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  6. ¿CÓMO se llevará a cabo? (How)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-800">
+                    6. ¿CÓMO se llevará a cabo? (How)
+                  </label>
+                  <button
+                    type="button"
+                    disabled={polishingField === 'how'}
+                    onClick={() => handleAICorrect('how')}
+                    className="text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                    title="Detalla el método de ejecución estándar"
+                  >
+                    <Sparkles size={11} className={polishingField === 'how' ? 'animate-spin' : ''} />
+                    <span>{polishingField === 'how' ? 'Corrigiendo...' : '✨ IA Corregir'}</span>
+                  </button>
+                </div>
                 <textarea
                   rows={2}
                   value={formData.how}
@@ -602,11 +639,11 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
                 type="button"
                 disabled={!formData.what.trim() || isGeneratingSubtasks}
                 onClick={handleAIGenerateSubtasks}
-                className="text-xs font-bold text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-xs"
+                className="text-xs font-bold text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-xs cursor-pointer"
                 title="Genera subtareas automáticamente basadas en la acción"
               >
                 <Sparkles size={13} className={isGeneratingSubtasks ? 'animate-spin text-indigo-600' : 'text-indigo-600'} />
-                <span>{isGeneratingSubtasks ? 'Generando...' : '✨ Proponer subtareas con IA'}</span>
+                <span>{isGeneratingSubtasks ? 'Generando subtareas...' : '✨ IA Subtareas PDCA'}</span>
               </button>
             </div>
 
