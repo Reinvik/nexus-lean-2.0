@@ -20,6 +20,7 @@ const VSMPage = lazy(() => import('./features/vsm/VSMPage'));
 const GembaPage = lazy(() => import('./features/gemba/GembaPage'));
 const ResponsablesPage = lazy(() => import('./features/responsables/ResponsablesPage'));
 const ConsultantPage = lazy(() => import('./features/consultant/ConsultantPage'));
+const FundamentalsPage = lazy(() => import('./features/fundamentals/FundamentalsPage'));
 const OfflinePage = lazy(() => import('./features/offline/OfflinePage'));
 const UsersPage = lazy(() => import('./features/admin/UsersPage'));
 const CompaniesPage = lazy(() => import('./features/admin/CompaniesPage'));
@@ -92,6 +93,9 @@ export const App: React.FC = () => {
               <Route path="vsm" element={<VSMPage />} />
               <Route path="responsables" element={<ResponsablesPage />} />
               <Route path="consultant" element={<ConsultantPage />} />
+              <Route path="fundamentos" element={<FundamentalsPage />} />
+              <Route path="glosario" element={<FundamentalsPage />} />
+              <Route path="academia" element={<FundamentalsPage />} />
 
               {/* Admin Routes */}
               <Route

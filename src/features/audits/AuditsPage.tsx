@@ -19,6 +19,8 @@ import {
   TrendingUp,
   Search,
   Building,
+  RotateCcw,
+  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -58,11 +60,56 @@ export const AuditsPage: React.FC = () => {
     loadAudits();
   }, [loadAudits]);
 
+  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
+
+  // Helper to calculate radar scores for a single audit
+  const getAuditRadarScores = useCallback((audit: Audit5S) => {
+    if (audit.entries && audit.entries.length > 0) {
+      const hasScoreOver4 = audit.entries.some((e) => (e.score || 0) > 4);
+      const maxPerQuestion = hasScoreOver4 ? 5 : 4;
+
+      const sections: Array<'s1' | 's2' | 's3' | 's4' | 's5'> = ['s1', 's2', 's3', 's4', 's5'];
+      const res: Record<'s1' | 's2' | 's3' | 's4' | 's5', number> = {
+        s1: 0,
+        s2: 0,
+        s3: 0,
+        s4: 0,
+        s5: 0,
+      };
+      const normTotal = getNormalizedScore(audit.total_score);
+
+      sections.forEach((sec) => {
+        const secEntries = audit.entries!.filter(
+          (e) => e.section?.toLowerCase() === sec
+        );
+        if (secEntries.length > 0) {
+          const sum = secEntries.reduce((acc, curr) => acc + (curr.score || 0), 0);
+          res[sec] = Math.min(
+            100,
+            Math.max(0, Math.round((sum / (secEntries.length * maxPerQuestion)) * 100))
+          );
+        } else {
+          res[sec] = normTotal;
+        }
+      });
+
+      return res;
+    }
+
+    const norm = getNormalizedScore(audit.total_score);
+    return { s1: norm, s2: norm, s3: norm, s4: norm, s5: norm };
+  }, []);
+
   // Aggregate Radar Scores across audits
-  const radarScores = useMemo(() => {
+  const averageRadarScores = useMemo(() => {
     if (audits.length === 0) {
       return { s1: 75, s2: 60, s3: 80, s4: 65, s5: 70 }; // Baseline visual placeholder
     }
+
+    const hasAnyOver4 = audits.some((a) =>
+      a.entries?.some((e) => (e.score || 0) > 4)
+    );
+    const maxPerQuestion = hasAnyOver4 ? 5 : 4;
 
     let s1 = 0, s2 = 0, s3 = 0, s4 = 0, s5 = 0;
     let counts = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 };
@@ -72,7 +119,7 @@ export const AuditsPage: React.FC = () => {
         a.entries.forEach((e) => {
           const sec = e.section?.toLowerCase() as 's1' | 's2' | 's3' | 's4' | 's5';
           if (counts[sec] !== undefined) {
-            const maxPts = e.score > 4 ? 5 : 4;
+            const maxPts = e.score > 4 ? 5 : maxPerQuestion;
             const pct = Math.min(100, (e.score / maxPts) * 100);
             if (sec === 's1') s1 += pct;
             if (sec === 's2') s2 += pct;
@@ -93,6 +140,20 @@ export const AuditsPage: React.FC = () => {
       s5: counts.s5 > 0 ? Math.round(s5 / counts.s5) : 75,
     };
   }, [audits]);
+
+  // Selected audit (if any)
+  const selectedAudit = useMemo(() => {
+    if (!selectedAuditId) return null;
+    return audits.find((a) => a.id === selectedAuditId) || null;
+  }, [audits, selectedAuditId]);
+
+  // Active Radar Scores: shows specific audit if one is clicked, or overall average
+  const activeRadarScores = useMemo(() => {
+    if (selectedAudit) {
+      return getAuditRadarScores(selectedAudit);
+    }
+    return averageRadarScores;
+  }, [selectedAudit, averageRadarScores, getAuditRadarScores]);
 
   // General KPIs with normalized scores
   const stats = useMemo(() => {
@@ -137,6 +198,9 @@ export const AuditsPage: React.FC = () => {
       if (res.success) {
         toast.success('Auditoría eliminada');
         setAudits((prev) => prev.filter((a) => a.id !== id));
+        if (selectedAuditId === id) {
+          setSelectedAuditId(null);
+        }
       } else {
         toast.error(res.error || 'Error al eliminar');
       }
@@ -245,38 +309,67 @@ export const AuditsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Radar Chart Card */}
         <div className="lg:col-span-5 p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] space-y-4">
-          <div>
-            <h3 className="text-base font-bold text-slate-900 font-sans flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-500" />
-              <span>Radar de Madurez 5S</span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Comparativa de desempeño en cada una de las 5 dimensiones
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 font-sans flex items-center gap-2">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                    selectedAudit ? 'bg-emerald-500 ring-2 ring-emerald-200 animate-pulse' : 'bg-cyan-500'
+                  }`}
+                />
+                <span>
+                  {selectedAudit
+                    ? `Radar 5S: ${selectedAudit.area || selectedAudit.title}`
+                    : 'Radar de Madurez 5S'}
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                {selectedAudit ? (
+                  <span>
+                    Auditado el {formatDate(selectedAudit.audit_date)} por{' '}
+                    <strong className="text-slate-700">{selectedAudit.auditor}</strong> ({getNormalizedScore(selectedAudit.total_score)}%)
+                  </span>
+                ) : (
+                  'Promedio general de desempeño en las 5 dimensiones'
+                )}
+              </p>
+            </div>
+
+            {selectedAudit && (
+              <button
+                type="button"
+                onClick={() => setSelectedAuditId(null)}
+                className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg transition-all shadow-2xs"
+                title="Volver a ver el promedio general de todas las auditorías"
+              >
+                <RotateCcw size={12} />
+                <span>Ver Promedio</span>
+              </button>
+            )}
           </div>
 
-          <AuditRadarChart scores={radarScores} />
+          <AuditRadarChart scores={activeRadarScores} />
 
           <div className="grid grid-cols-5 gap-2 pt-4 border-t border-slate-100 text-center">
             <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
               <span className="text-[11px] text-slate-500 block font-semibold">1S Seiri</span>
-              <span className="text-xs font-extrabold text-cyan-600">{radarScores.s1}%</span>
+              <span className="text-xs font-extrabold text-cyan-600">{activeRadarScores.s1}%</span>
             </div>
             <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
               <span className="text-[11px] text-slate-500 block font-semibold">2S Seiton</span>
-              <span className="text-xs font-extrabold text-indigo-600">{radarScores.s2}%</span>
+              <span className="text-xs font-extrabold text-indigo-600">{activeRadarScores.s2}%</span>
             </div>
             <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
               <span className="text-[11px] text-slate-500 block font-semibold">3S Seiso</span>
-              <span className="text-xs font-extrabold text-emerald-600">{radarScores.s3}%</span>
+              <span className="text-xs font-extrabold text-emerald-600">{activeRadarScores.s3}%</span>
             </div>
             <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
               <span className="text-[11px] text-slate-500 block font-semibold">4S Seiketsu</span>
-              <span className="text-xs font-extrabold text-amber-600">{radarScores.s4}%</span>
+              <span className="text-xs font-extrabold text-amber-600">{activeRadarScores.s4}%</span>
             </div>
             <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
               <span className="text-[11px] text-slate-500 block font-semibold">5S Shitsuke</span>
-              <span className="text-xs font-extrabold text-rose-600">{radarScores.s5}%</span>
+              <span className="text-xs font-extrabold text-rose-600">{activeRadarScores.s5}%</span>
             </div>
           </div>
         </div>
@@ -289,7 +382,9 @@ export const AuditsPage: React.FC = () => {
                 Historial de Auditorías
               </h3>
               <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                Últimas revisiones ejecutadas en planta
+                {selectedAudit
+                  ? `Mostrando en radar: "${selectedAudit.area || selectedAudit.title}". Haz clic para desmarcar.`
+                  : 'Últimas revisiones ejecutadas en planta • Haz clic en una auditoría para ver su radar'}
               </p>
             </div>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/60 font-mono w-fit">
@@ -369,6 +464,7 @@ export const AuditsPage: React.FC = () => {
           ) : filteredAudits.length > 0 ? (
             <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
               {filteredAudits.map((audit) => {
+                const isSelected = selectedAuditId === audit.id;
                 const normScore = getNormalizedScore(audit.total_score);
                 const isOriginal5Scale =
                   (audit.total_score || 0) <= 5 && (audit.total_score || 0) > 0;
@@ -378,7 +474,14 @@ export const AuditsPage: React.FC = () => {
                 return (
                   <div
                     key={audit.id}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:border-cyan-400 hover:bg-white hover:shadow-sm transition-all"
+                    onClick={() => {
+                      setSelectedAuditId((prev) => (prev === audit.id ? null : audit.id));
+                    }}
+                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none group ${
+                      isSelected
+                        ? 'bg-cyan-50/70 border-cyan-500 ring-2 ring-cyan-500/25 shadow-sm'
+                        : 'bg-slate-50/80 border-slate-200/80 hover:border-cyan-400 hover:bg-white hover:shadow-xs'
+                    }`}
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div
@@ -399,9 +502,16 @@ export const AuditsPage: React.FC = () => {
                       </div>
 
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">
-                          {audit.area || audit.title || 'Área General'}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-cyan-700 transition-colors">
+                            {audit.area || audit.title || 'Área General'}
+                          </p>
+                          {isSelected && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-cyan-600 text-white shrink-0">
+                              <Eye size={10} /> En Radar
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
                           <span className="flex items-center gap-1 truncate font-medium">
                             <User size={12} className="text-slate-400" />
@@ -420,7 +530,10 @@ export const AuditsPage: React.FC = () => {
                         {normScore >= 80 ? 'Excelente' : normScore >= 60 ? 'Regular' : 'Crítico'}
                       </Badge>
                       <button
-                        onClick={() => handleDelete(audit.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(audit.id);
+                        }}
                         className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
                         title="Eliminar registro"
                       >

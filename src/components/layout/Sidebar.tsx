@@ -19,6 +19,7 @@ import {
   LogOut,
   Building,
   ChevronDown,
+  Compass,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -83,6 +84,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         return allowedSet.has('responsables');
       case 'consultor_ia':
         return allowedSet.has('consultor_ia') || allowedSet.has('consultant') || allowedSet.has('ai');
+      case 'fundamentos':
+        return true;
       default:
         return allowedSet.has(moduleId);
     }
@@ -99,6 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { icon: FileText, label: 'Proyectos A3', path: '/a3', moduleId: 'a3' },
     { icon: Activity, label: 'Mapeo de Procesos', path: '/vsm', moduleId: 'vsm' },
     { icon: Zap, label: 'Quick Wins', path: '/quick-wins', moduleId: 'quick_wins' },
+    { icon: Compass, label: 'Fundamentos Lean', path: '/fundamentos', moduleId: 'fundamentos' },
     { icon: Users, label: 'Responsables', path: '/responsables', moduleId: 'responsables' },
     ...(isUserAdmin ? [{ icon: Settings, label: 'Administración', path: '/admin' }] : []),
   ].filter((item) => !item.moduleId || isModuleAllowed(item.moduleId));
