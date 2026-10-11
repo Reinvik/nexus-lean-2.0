@@ -44,19 +44,56 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     user && (user.isGlobalAdmin || user.canAccessAdmin || user.isNexusOwner)
   );
 
+  const isGlobalAdminOrOwner = Boolean(user && (user.isGlobalAdmin || user.isNexusOwner));
+
+  const isModuleAllowed = (moduleId?: string) => {
+    if (!moduleId) return true;
+    if (isGlobalAdminOrOwner) return true;
+    if (!user?.allowedModules || user.allowedModules.length === 0) return true;
+
+    const allowedSet = new Set(user.allowedModules.map((m) => m.toLowerCase().trim()));
+    switch (moduleId) {
+      case '5s':
+        return allowedSet.has('5s') || allowedSet.has('5s_cards');
+      case 'audits':
+        return (
+          allowedSet.has('audits') ||
+          allowedSet.has('auditoria_5s') ||
+          allowedSet.has('5s_audits') ||
+          allowedSet.has('auditorias-5s')
+        );
+      case 'a3':
+        return allowedSet.has('a3') || allowedSet.has('a3_projects');
+      case 'vsm':
+        return allowedSet.has('vsm');
+      case 'quick_wins':
+        return (
+          allowedSet.has('quick_wins') ||
+          allowedSet.has('quickwins') ||
+          allowedSet.has('quick-wins')
+        );
+      case 'responsables':
+        return allowedSet.has('responsables');
+      case 'consultor_ia':
+        return allowedSet.has('consultor_ia') || allowedSet.has('consultant') || allowedSet.has('ai');
+      default:
+        return allowedSet.has(moduleId);
+    }
+  };
+
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    ...(isUserAdmin || user?.hasAiAccess
-      ? [{ icon: Brain, label: 'Consultor IA', path: '/consultant' }]
+    ...((isGlobalAdminOrOwner || (user?.hasAiAccess && isModuleAllowed('consultor_ia')))
+      ? [{ icon: Brain, label: 'Consultor IA', path: '/consultant', moduleId: 'consultor_ia' }]
       : []),
-    { icon: ClipboardList, label: 'Tarjetas 5S', path: '/5s' },
-    { icon: ShieldCheck, label: 'Auditoría 5S', path: '/auditorias-5s' },
-    { icon: FileText, label: 'Proyectos A3', path: '/a3' },
-    { icon: Activity, label: 'Mapeo de Procesos', path: '/vsm' },
-    { icon: Zap, label: 'Quick Wins', path: '/quick-wins' },
-    { icon: Users, label: 'Responsables', path: '/responsables' },
+    { icon: ClipboardList, label: 'Tarjetas 5S', path: '/5s', moduleId: '5s' },
+    { icon: ShieldCheck, label: 'Auditoría 5S', path: '/auditorias-5s', moduleId: 'audits' },
+    { icon: FileText, label: 'Proyectos A3', path: '/a3', moduleId: 'a3' },
+    { icon: Activity, label: 'Mapeo de Procesos', path: '/vsm', moduleId: 'vsm' },
+    { icon: Zap, label: 'Quick Wins', path: '/quick-wins', moduleId: 'quick_wins' },
+    { icon: Users, label: 'Responsables', path: '/responsables', moduleId: 'responsables' },
     ...(isUserAdmin ? [{ icon: Settings, label: 'Administración', path: '/admin' }] : []),
-  ];
+  ].filter((item) => !item.moduleId || isModuleAllowed(item.moduleId));
 
   const handleReiniciar = async () => {
     localStorage.clear();

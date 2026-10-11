@@ -75,7 +75,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isCompanyAdmin = role === 'superuser' || isGlobalAdmin;
 
       const companyId = prof?.company_id || null;
-      const allowedModules = prof?.allowed_modules || ['5s', 'audits', 'quick_wins', 'a3', 'vsm'];
+      let companyAllowedModules: string[] | null = null;
+      if (companyId) {
+        const { data: comp } = await supabase
+          .from('companies')
+          .select('allowed_modules')
+          .eq('id', companyId)
+          .maybeSingle();
+        if (comp?.allowed_modules && Array.isArray(comp.allowed_modules)) {
+          companyAllowedModules = comp.allowed_modules;
+        }
+      }
+
+      const allowedModules =
+        prof?.allowed_modules ||
+        companyAllowedModules ||
+        ['5s', 'audits', 'quick_wins', 'a3', 'vsm', 'responsables', 'consultor_ia'];
 
       const nexusUser: NexusUser = {
         id: userId,
