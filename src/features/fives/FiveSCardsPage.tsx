@@ -30,6 +30,7 @@ import {
   Maximize2,
   FileDown,
   TrendingUp,
+  Filter,
 } from 'lucide-react';
 import {
   PieChart,
@@ -252,24 +253,111 @@ export const FiveSCardsPage: React.FC = () => {
     });
   }, [visibleCards, searchTerm, filterLocation, filterResponsible, statusFilter]);
 
+  // Smooth scroll helper when filtering from KPI charts
+  const scrollToGridIfOffscreen = () => {
+    const gridEl = document.getElementById('cards-grid-section');
+    if (gridEl) {
+      const rect = gridEl.getBoundingClientRect();
+      if (rect.top < 0 || rect.bottom < 150) {
+        gridEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
+  // Immediate Status Filter Toggle (from Pie chart or Legend)
+  const handleStatusFilterToggle = (statusName: string) => {
+    let nextStatus = statusName;
+    if (
+      statusFilter === statusName ||
+      (statusName === 'En Progreso' && (statusFilter === 'En Proceso' || statusFilter === 'En Progreso'))
+    ) {
+      nextStatus = 'Todos';
+    }
+
+    setStatusFilter(nextStatus);
+
+    // If user clicked 'Cerrado' but viewMode was 'active', reset to 'all' so cards are visible
+    if (nextStatus === 'Cerrado' && viewMode === 'active') {
+      setViewMode('all');
+    }
+    // If user clicked 'Abierto' or 'En Progreso' but viewMode was 'history', reset to 'all'
+    if ((nextStatus === 'Abierto' || nextStatus === 'En Progreso') && viewMode === 'history') {
+      setViewMode('all');
+    }
+
+    if (nextStatus !== 'Todos') {
+      toast.success(`Filtrando por estado: ${nextStatus}`, { id: 'status-filter', duration: 1800 });
+    }
+
+    scrollToGridIfOffscreen();
+  };
+
+  // Immediate Location/Area Filter Toggle (from Bar chart or Area labels)
+  const handleLocationFilterToggle = (locationName: string) => {
+    const nextLoc = filterLocation === locationName ? '' : locationName;
+    setFilterLocation(nextLoc);
+
+    if (nextLoc) {
+      toast.success(`Filtrando por área: ${nextLoc}`, { id: 'loc-filter', duration: 1800 });
+    }
+
+    scrollToGridIfOffscreen();
+  };
+
+  // Base cards for Status Distribution (retains all 3 statuses clickable)
+  const statusBaseCards = useMemo(() => {
+    return visibleCards.filter((card) => {
+      const searchLower = searchTerm.toLowerCase();
+      const locationMatch = filterLocation
+        ? (card.location || card.area) === filterLocation
+        : true;
+      const responsibleMatch = filterResponsible
+        ? card.responsible === filterResponsible
+        : true;
+
+      const textMatch =
+        (card.location || card.area || '').toLowerCase().includes(searchLower) ||
+        (card.article || card.description || '').toLowerCase().includes(searchLower) ||
+        (card.responsible || '').toLowerCase().includes(searchLower) ||
+        (card.reason || card.findings || '').toLowerCase().includes(searchLower);
+
+      return locationMatch && responsibleMatch && textMatch;
+    });
+  }, [visibleCards, searchTerm, filterLocation, filterResponsible]);
+
+  // Base cards for Top Areas (retains top areas clickable)
+  const locationBaseCards = useMemo(() => {
+    return visibleCards.filter((card) => {
+      const searchLower = searchTerm.toLowerCase();
+      const responsibleMatch = filterResponsible
+        ? card.responsible === filterResponsible
+        : true;
+
+      const textMatch =
+        (card.location || card.area || '').toLowerCase().includes(searchLower) ||
+        (card.article || card.description || '').toLowerCase().includes(searchLower) ||
+        (card.responsible || '').toLowerCase().includes(searchLower) ||
+        (card.reason || card.findings || '').toLowerCase().includes(searchLower);
+
+      let statusMatch = true;
+      if (statusFilter !== 'Todos') {
+        if (statusFilter === 'En Progreso') {
+          statusMatch = card.status === 'En Proceso' || card.status === 'En Progreso';
+        } else {
+          statusMatch = card.status === statusFilter;
+        }
+      }
+
+      return responsibleMatch && textMatch && statusMatch;
+    });
+  }, [visibleCards, searchTerm, filterResponsible, statusFilter]);
+
   // KPI Calculations
   const kpiData = useMemo(() => {
     const total = gridCards.length;
-    if (total === 0) {
-      return {
-        statusData: [],
-        locationData: [],
-        weeklyTrend: [],
-        completionRate: 0,
-        closed: 0,
-        pending: 0,
-        inProcess: 0,
-        total: 0,
-        closureStats: { avg: 0, min: 0, max: 0 },
-      };
-    }
 
-    const statusCounts = gridCards.reduce((acc: Record<string, number>, curr) => {
+    // Status breakdown from statusBaseCards
+    const statusCounts = statusBaseCards.reduce((acc: Record<string, number>, curr) => {
       let status = curr.status;
       if (status === 'En Progreso') status = 'En Proceso';
       acc[status] = (acc[status] || 0) + 1;
@@ -284,10 +372,10 @@ export const FiveSCardsPage: React.FC = () => {
       { name: 'Cerrado', value: closed, color: '#10b981' },
       { name: 'En Progreso', value: inProgress, color: '#f59e0b' },
       { name: 'Abierto', value: open, color: '#ef4444' },
-    ].filter((d) => d.value > 0);
+    ];
 
-    // Locations Top 5
-    const locationCounts = gridCards.reduce((acc: Record<string, number>, curr) => {
+    // Locations Top 5 from locationBaseCards
+    const locationCounts = locationBaseCards.reduce((acc: Record<string, number>, curr) => {
       const loc = curr.location || curr.area || 'General';
       acc[loc] = (acc[loc] || 0) + 1;
       return acc;
@@ -297,6 +385,28 @@ export const FiveSCardsPage: React.FC = () => {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
+
+    // If filterLocation is active and not already in top 5, add it
+    if (filterLocation && !locationData.some((l) => l.name === filterLocation)) {
+      locationData.push({
+        name: filterLocation,
+        count: locationCounts[filterLocation] || 0,
+      });
+    }
+
+    if (total === 0) {
+      return {
+        statusData,
+        locationData,
+        weeklyTrend: [],
+        completionRate: 0,
+        closed: 0,
+        pending: 0,
+        inProcess: 0,
+        total: 0,
+        closureStats: { avg: 0, min: 0, max: 0 },
+      };
+    }
 
     // Days to close statistics
     const closedCards = gridCards.filter(
@@ -369,14 +479,20 @@ export const FiveSCardsPage: React.FC = () => {
       };
     });
 
+    const finalClosed = gridCards.filter((c) => c.status === 'Cerrado').length;
+    const finalOpen = gridCards.filter((c) => c.status === 'Abierto').length;
+    const finalInProcess = gridCards.filter(
+      (c) => c.status === 'En Proceso' || c.status === 'En Progreso'
+    ).length;
+
     return {
       statusData,
       locationData,
       weeklyTrend,
-      completionRate: Math.round((closed / total) * 100),
-      closed,
-      pending: open,
-      inProcess: inProgress,
+      completionRate: Math.round((finalClosed / total) * 100),
+      closed: finalClosed,
+      pending: finalOpen,
+      inProcess: finalInProcess,
       total,
       closureStats: {
         avg: avgDays,
@@ -384,7 +500,7 @@ export const FiveSCardsPage: React.FC = () => {
         max: maxDays,
       },
     };
-  }, [gridCards]);
+  }, [gridCards, statusBaseCards, locationBaseCards, filterLocation]);
 
   // Save Card Handler
   const handleSaveCard = async (cardData: Partial<FiveSCard>): Promise<boolean> => {
@@ -738,15 +854,16 @@ export const FiveSCardsPage: React.FC = () => {
             />
           </div>
 
-          {(filterResponsible || filterLocation || searchTerm) && (
+          {(filterResponsible || filterLocation || searchTerm || statusFilter !== 'Todos') && (
             <button
               onClick={() => {
                 setFilterResponsible('');
                 setFilterLocation('');
                 setSearchTerm('');
+                setStatusFilter('Todos');
               }}
-              className="p-2.5 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors shrink-0"
-              title="Limpiar Filtros"
+              className="p-2.5 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors shrink-0 flex items-center gap-1.5"
+              title="Limpiar Todos los Filtros"
             >
               <X size={20} />
             </button>
@@ -776,8 +893,82 @@ export const FiveSCardsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Active Filters Bar */}
+      {(statusFilter !== 'Todos' || filterLocation || filterResponsible || searchTerm) && (
+        <div className="flex flex-wrap items-center gap-2 bg-blue-50/80 border border-blue-200/90 rounded-xl px-4 py-2.5 text-xs text-slate-700 animate-in fade-in duration-200 shadow-xs">
+          <span className="font-bold text-blue-900 flex items-center gap-1.5 mr-1">
+            <Filter size={14} className="text-blue-600" /> Filtros aplicados:
+          </span>
+          {statusFilter !== 'Todos' && (
+            <button
+              onClick={() => setStatusFilter('Todos')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-white text-slate-800 border border-slate-300 hover:border-rose-400 hover:text-rose-600 transition-colors shadow-xs"
+              title="Quitar filtro de estado"
+            >
+              <span
+                className="w-2 h-2 rounded-full inline-block"
+                style={{
+                  backgroundColor:
+                    statusFilter === 'Cerrado'
+                      ? '#10b981'
+                      : statusFilter === 'Abierto'
+                      ? '#ef4444'
+                      : '#f59e0b',
+                }}
+              />
+              <span>Estado: {statusFilter}</span>
+              <X size={12} className="text-slate-400 hover:text-rose-500" />
+            </button>
+          )}
+          {filterLocation && (
+            <button
+              onClick={() => setFilterLocation('')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-white text-slate-800 border border-slate-300 hover:border-rose-400 hover:text-rose-600 transition-colors shadow-xs"
+              title="Quitar filtro de área"
+            >
+              <MapPin size={12} className="text-blue-500" />
+              <span>Área: {filterLocation}</span>
+              <X size={12} className="text-slate-400 hover:text-rose-500" />
+            </button>
+          )}
+          {filterResponsible && (
+            <button
+              onClick={() => setFilterResponsible('')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-white text-slate-800 border border-slate-300 hover:border-rose-400 hover:text-rose-600 transition-colors shadow-xs"
+              title="Quitar filtro de responsable"
+            >
+              <User size={12} className="text-blue-500" />
+              <span>Resp: {filterResponsible}</span>
+              <X size={12} className="text-slate-400 hover:text-rose-500" />
+            </button>
+          )}
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-white text-slate-800 border border-slate-300 hover:border-rose-400 hover:text-rose-600 transition-colors shadow-xs"
+              title="Quitar búsqueda"
+            >
+              <Search size={12} className="text-blue-500" />
+              <span>&quot;{searchTerm}&quot;</span>
+              <X size={12} className="text-slate-400 hover:text-rose-500" />
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setStatusFilter('Todos');
+              setFilterLocation('');
+              setFilterResponsible('');
+              setSearchTerm('');
+            }}
+            className="ml-auto text-blue-700 hover:text-rose-600 font-bold underline text-[11px] transition-colors"
+          >
+            Limpiar todos
+          </button>
+        </div>
+      )}
+
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div id="cards-grid-section" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 scroll-mt-20">
         {loading && cards.length === 0 ? (
           // Skeleton loaders
           Array.from({ length: 8 }).map((_, i) => (
@@ -928,10 +1119,10 @@ export const FiveSCardsPage: React.FC = () => {
       </div>
 
       {/* KPI Dashboard Section (Footer) */}
-      {gridCards.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-8 mt-8">
+      {(cards.length > 0 || visibleCards.length > 0) && (
+        <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 md:p-8 mt-8">
           {/* Header con botón para modo presentación */}
-          <div className="flex justify-between items-center mb-8 pb-4 border-b border-slate-100 flex-wrap gap-4">
+          <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100 flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
                 <BarIcon size={24} />
@@ -939,18 +1130,32 @@ export const FiveSCardsPage: React.FC = () => {
               <div>
                 <h3 className="text-xl font-bold text-slate-900">Indicadores de Gestión</h3>
                 <p className="text-sm text-slate-500">
-                  Análisis visual de anomalías y mejoras
+                  Haz clic en cualquier estado o área para filtrar las tarjetas
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={() => setIsPresentationMode(true)}
-              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-semibold transition-all text-sm shadow-sm hover:shadow active:scale-95"
-            >
-              <Maximize2 size={16} className="text-slate-600" />
-              <span>Vista Presentación (PPT 16:9)</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {(statusFilter !== 'Todos' || filterLocation) && (
+                <button
+                  onClick={() => {
+                    setStatusFilter('Todos');
+                    setFilterLocation('');
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
+                >
+                  Restablecer Gráficos
+                </button>
+              )}
+
+              <button
+                onClick={() => setIsPresentationMode(true)}
+                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-semibold transition-all text-sm shadow-sm hover:shadow active:scale-95"
+              >
+                <Maximize2 size={16} className="text-slate-600" />
+                <span>Vista Presentación (PPT 16:9)</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1059,81 +1264,236 @@ export const FiveSCardsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Column 2: Status Distribution */}
-            <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 flex flex-col justify-between">
-              <h4 className="text-center text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5">
-                <Activity size={14} className="text-blue-500" /> Distribución por Estado
-              </h4>
-              <div className="flex-1 min-h-[220px] relative">
+            {/* Column 2: Status Distribution (Interactive) */}
+            <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 flex flex-col justify-between transition-all hover:border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity size={14} className="text-blue-500" /> Distribución por Estado
+                </h4>
+                {statusFilter !== 'Todos' ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStatusFilterToggle(statusFilter);
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 hover:bg-rose-100 hover:text-rose-700 transition-colors shadow-xs"
+                    title="Quitar filtro de estado"
+                  >
+                    <span>Filtro: {statusFilter}</span>
+                    <X size={10} />
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-medium">Clic para filtrar</span>
+                )}
+              </div>
+
+              <div className="flex-1 min-h-[200px] relative">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={kpiData.statusData}
+                      data={kpiData.statusData.filter((d) => d.value > 0)}
                       cx="50%"
                       cy="50%"
                       innerRadius={50}
                       outerRadius={70}
                       paddingAngle={4}
                       dataKey="value"
-                      stroke="none"
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                      cursor="pointer"
+                      onClick={(entry: any) => {
+                        if (entry && entry.name) {
+                          handleStatusFilterToggle(entry.name);
+                        }
+                      }}
                     >
-                      {kpiData.statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
+                      {kpiData.statusData.filter((d) => d.value > 0).map((entry, index) => {
+                        const isSelected =
+                          (entry.name === 'En Progreso' && (statusFilter === 'En Progreso' || statusFilter === 'En Proceso')) ||
+                          statusFilter === entry.name;
+                        const isAnyStatusActive = statusFilter !== 'Todos';
+
+                        return (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.color}
+                            opacity={isAnyStatusActive && !isSelected ? 0.35 : 1}
+                            stroke={isSelected ? '#0f172a' : '#ffffff'}
+                            strokeWidth={isSelected ? 3 : 2}
+                            style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                          />
+                        );
+                      })}
                     </Pie>
                     <RechartsTooltip
+                      formatter={(value: any, name: any) => [`${value} tarjetas`, `${name} (clic para filtrar)`]}
                       contentStyle={{
                         borderRadius: '8px',
                         border: 'none',
                         boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                         fontSize: '11px',
                       }}
-                    />
-                    <Legend
-                      verticalAlign="bottom"
-                      height={28}
-                      iconType="circle"
-                      wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
+
+              {/* Botones / Leyenda interactiva */}
+              <div className="flex justify-center items-center gap-2 mt-2 flex-wrap">
+                {kpiData.statusData.map((s) => {
+                  const isSelected =
+                    (s.name === 'En Progreso' && (statusFilter === 'En Progreso' || statusFilter === 'En Proceso')) ||
+                    statusFilter === s.name;
+                  return (
+                    <button
+                      key={s.name}
+                      onClick={() => handleStatusFilterToggle(s.name)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-slate-800 shadow-sm bg-slate-900 text-white'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}
+                      title={`Filtrar por ${s.name}`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
+                        style={{ backgroundColor: s.color }}
+                      />
+                      <span>{s.name}</span>
+                      <span
+                        className={`text-[10px] font-normal ${
+                          isSelected ? 'text-slate-300' : 'text-slate-400'
+                        }`}
+                      >
+                        ({s.value})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Column 3: Top Areas */}
-            <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 flex flex-col justify-between">
-              <h4 className="text-center text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5">
-                <BarIcon size={14} className="text-blue-500" /> Top Áreas con Hallazgos
-              </h4>
-              <div className="flex-1 min-h-[220px] relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={kpiData.locationData}
-                    layout="vertical"
-                    margin={{ top: 5, right: 15, left: 10, bottom: 5 }}
+            {/* Column 3: Top Areas (Interactive) */}
+            <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 flex flex-col justify-between transition-all hover:border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <BarIcon size={14} className="text-blue-500" /> Top Áreas con Hallazgos
+                </h4>
+                {filterLocation ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLocationFilterToggle(filterLocation);
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 hover:bg-rose-100 hover:text-rose-700 transition-colors shadow-xs"
+                    title="Quitar filtro de área"
                   >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                    <XAxis type="number" hide />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={80}
-                      tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <RechartsTooltip
-                      cursor={{ fill: '#f1f5f9' }}
-                      contentStyle={{
-                        borderRadius: '8px',
-                        border: 'none',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                        fontSize: '11px',
+                    <span>Filtro: {filterLocation}</span>
+                    <X size={10} />
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-medium">Clic para filtrar</span>
+                )}
+              </div>
+
+              <div className="flex-1 min-h-[220px] relative">
+                {kpiData.locationData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={kpiData.locationData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 15, left: 10, bottom: 5 }}
+                      onClick={(state: any) => {
+                        if (state && state.activePayload && state.activePayload.length > 0) {
+                          const areaName = state.activePayload[0].payload.name;
+                          handleLocationFilterToggle(areaName);
+                        }
                       }}
-                    />
-                    <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={16} />
-                  </BarChart>
-                </ResponsiveContainer>
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                      <XAxis type="number" hide />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={95}
+                        tick={(props: any) => {
+                          const { x, y, payload } = props;
+                          const isSelected = filterLocation === payload.value;
+                          return (
+                            <g
+                              transform={`translate(${x},${y})`}
+                              style={{ cursor: 'pointer' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLocationFilterToggle(payload.value);
+                              }}
+                            >
+                              <title>{`Filtrar por ${payload.value}`}</title>
+                              <text
+                                x={0}
+                                y={0}
+                                dy={4}
+                                textAnchor="end"
+                                fill={isSelected ? '#1d4ed8' : '#475569'}
+                                fontSize={10}
+                                fontWeight={isSelected ? 'bold' : '600'}
+                                className="hover:underline transition-colors"
+                              >
+                                {payload.value.length > 14
+                                  ? `${payload.value.substring(0, 12)}…`
+                                  : payload.value}
+                              </text>
+                            </g>
+                          );
+                        }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <RechartsTooltip
+                        cursor={{ fill: '#f1f5f9' }}
+                        formatter={(value: any, name: any, item: any) => [
+                          `${value} hallazgos`,
+                          `${item?.payload?.name || name} (clic para filtrar)`,
+                        ]}
+                        contentStyle={{
+                          borderRadius: '8px',
+                          border: 'none',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                          fontSize: '11px',
+                        }}
+                      />
+                      <Bar
+                        dataKey="count"
+                        radius={[0, 4, 4, 0]}
+                        barSize={18}
+                        cursor="pointer"
+                        onClick={(entry: any) => {
+                          if (entry && entry.name) {
+                            handleLocationFilterToggle(entry.name);
+                          }
+                        }}
+                      >
+                        {kpiData.locationData.map((entry, index) => {
+                          const isSelected = filterLocation === entry.name;
+                          const isAnySelected = Boolean(filterLocation);
+                          return (
+                            <Cell
+                              key={`bar-${index}`}
+                              fill={isSelected ? '#1d4ed8' : '#3b82f6'}
+                              opacity={isAnySelected && !isSelected ? 0.35 : 1}
+                              className="cursor-pointer transition-all duration-200"
+                              style={{ cursor: 'pointer' }}
+                            />
+                          );
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-400 text-xs">
+                    Sin áreas registradas
+                  </div>
+                )}
               </div>
             </div>
           </div>
