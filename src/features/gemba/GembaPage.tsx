@@ -551,6 +551,7 @@ export const GembaPage: React.FC = () => {
   const totalHandshakeCommitments = findings.filter((f) => parseCommitmentMeta(f)?.isHandshake).length;
 
   return (
+    <>
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
@@ -1447,12 +1448,13 @@ export const GembaPage: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
 
       {/* Lightbox para Ampliar Fotos de Estándar o Evidencia */}
       {previewImage && (
         <div
           onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 !mt-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1524,7 +1526,7 @@ export const GembaPage: React.FC = () => {
           }}
         />
       )}
-    </div>
+    </>
   );
 };
 
@@ -1606,7 +1608,7 @@ const NewWalkModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 !mt-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
           <div className="flex items-center gap-2">
@@ -1889,7 +1891,7 @@ const NewRouteModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 !mt-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in flex flex-col max-h-[92vh]">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60 shrink-0">
           <div className="flex items-center gap-2">
@@ -2419,7 +2421,7 @@ Devuelve sólo las 3 preguntas numeradas, sin introducción ni despedida.`;
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 !mt-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-4xl w-full border border-slate-200 shadow-2xl flex flex-col max-h-[96vh] overflow-hidden my-auto">
         {/* Runner Header */}
         <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
