@@ -26,6 +26,7 @@ import {
   serializeVSMDescription,
   calculateVSMMetrics,
   DEFAULT_VSM_STEPS,
+  cleanMiroUrl,
 } from '../utils/vsmHelpers';
 import { VSMMiroViewer } from './VSMMiroViewer';
 import { VSMSawtoothTimeline } from './VSMSawtoothTimeline';
@@ -50,6 +51,7 @@ interface VSMDetailModalProps {
   onDelete: (id: string) => Promise<void>;
   users: Profile[];
   onUploadImage: (file: File) => Promise<string | null>;
+  initialTab?: 'sawtooth' | 'miro' | 'photo' | 'balance';
 }
 
 export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
@@ -60,6 +62,7 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
   onDelete,
   users,
   onUploadImage,
+  initialTab = 'sawtooth',
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<'sawtooth' | 'miro' | 'photo' | 'balance'>('sawtooth');
@@ -90,7 +93,7 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
       setResponsible(vsm.responsible || '');
       setDate(vsm.date || new Date().toISOString().split('T')[0]);
       setStatus(vsm.status || 'current');
-      setMiroLink(vsm.miro_link || '');
+      setMiroLink(cleanMiroUrl(vsm.miro_link || ''));
       setImageUrl(vsm.image_url || null);
 
       // Parse rich metadata from description
@@ -99,8 +102,9 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
       setSteps(parsed.steps);
       setAvailableTimeHours(parsed.availableTimeHours);
       setCustomerDemandUnits(parsed.customerDemandUnits);
+      setActiveTab(initialTab || 'sawtooth');
     }
-  }, [vsm]);
+  }, [vsm, initialTab]);
 
   if (!isOpen || !vsm) return null;
 
@@ -181,7 +185,7 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
         efficiency: `${metrics.pcePercentage}%`,
         takt_time: `${metrics.taktTimeSeconds}s`,
         image_url: imageUrl,
-        miro_link: miroLink.trim() || null,
+        miro_link: cleanMiroUrl(miroLink) || null,
       };
 
       await onSave(payload);
@@ -396,9 +400,9 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
                   <ExternalLink size={13} className="text-amber-500" />
                   <span>Enlace de Miro</span>
                 </h4>
-                {miroLink && (
+                {cleanMiroUrl(miroLink) && (
                   <a
-                    href={miroLink}
+                    href={cleanMiroUrl(miroLink)}
                     target="_blank"
                     rel="noreferrer"
                     className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-0.5"
@@ -411,6 +415,11 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
                 type="text"
                 value={miroLink}
                 onChange={(e) => setMiroLink(e.target.value)}
+                onBlur={() => {
+                  if (miroLink.trim()) {
+                    setMiroLink(cleanMiroUrl(miroLink));
+                  }
+                }}
                 placeholder="https://miro.com/app/board/..."
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:ring-2 focus:ring-blue-500 outline-none"
               />
@@ -612,7 +621,12 @@ export const VSMDetailModal: React.FC<VSMDetailModalProps> = ({
               )}
 
               {/* Tab 3: Miro Board Embed */}
-              {activeTab === 'miro' && <VSMMiroViewer miroLink={miroLink} />}
+              {activeTab === 'miro' && (
+                <VSMMiroViewer
+                  miroLink={miroLink}
+                  onUpdateLink={(newLink) => setMiroLink(cleanMiroUrl(newLink))}
+                />
+              )}
 
               {/* Tab 4: Physical Whiteboard Gemba Photo */}
               {activeTab === 'photo' && (

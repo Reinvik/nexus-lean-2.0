@@ -10,6 +10,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { VSMProject } from '../types';
+import { cleanMiroUrl } from '../utils/vsmHelpers';
 
 interface VSMProjectCardProps {
   vsm: VSMProject;
@@ -66,12 +67,16 @@ export const VSMProjectCard: React.FC<VSMProjectCardProps> = ({
 
           {/* Miro Badge if exists */}
           {vsm.miro_link && (
-            <span
-              title="Lienzo Miro vinculado"
-              className="bg-amber-400 text-slate-900 font-black text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md border border-amber-300 pointer-events-auto"
+            <a
+              href={cleanMiroUrl(vsm.miro_link)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Abrir tablero Miro en nueva pestaña"
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-md border border-amber-300 pointer-events-auto transition-transform hover:scale-105 active:scale-95 cursor-pointer"
             >
-              <ExternalLink size={11} /> Miro
-            </span>
+              <ExternalLink size={11} /> Miro ↗
+            </a>
           )}
         </div>
 

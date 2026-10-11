@@ -18,7 +18,7 @@ import { HeaderWithFilter } from '../../components/common/HeaderWithFilter';
 import type { VSMProject } from './types';
 import { VSMProjectCard } from './components/VSMProjectCard';
 import { VSMDetailModal } from './components/VSMDetailModal';
-import { DEFAULT_VSM_STEPS, serializeVSMDescription } from './utils/vsmHelpers';
+import { DEFAULT_VSM_STEPS, serializeVSMDescription, cleanMiroUrl } from './utils/vsmHelpers';
 
 export const VSMPage: React.FC = () => {
   const { user, globalFilterCompanyId, activeCompanyId } = useAuth();
@@ -30,6 +30,7 @@ export const VSMPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'current' | 'future' | 'completed'>('all');
   const [selectedVsm, setSelectedVsm] = useState<VSMProject | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalInitialTab, setModalInitialTab] = useState<'sawtooth' | 'miro' | 'photo' | 'balance'>('sawtooth');
 
   // Target company calculation for multitenancy
   const targetCompanyId = useMemo(() => {
@@ -70,7 +71,27 @@ export const VSMPage: React.FC = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      setVsms((data as VSMProject[]) || []);
+      const rawItems = (data as VSMProject[]) || [];
+      const sanitized = rawItems.map((item) => {
+        if (!item.miro_link) return item;
+        const cleaned = cleanMiroUrl(item.miro_link);
+        if (cleaned !== item.miro_link) {
+          // Auto-heal corrupted URL in Supabase asynchronously
+          supabase
+            .from('vsm_projects')
+            .update({ miro_link: cleaned })
+            .eq('id', item.id)
+            .then(({ error: updateErr }) => {
+              if (updateErr) {
+                console.warn('[VSM] Auto-heal failed for item', item.id, updateErr);
+              }
+            });
+          return { ...item, miro_link: cleaned };
+        }
+        return item;
+      });
+
+      setVsms(sanitized);
     } catch (error: any) {
       console.error('Error fetching VSMs:', error);
       toast.error('Error al cargar mapas VSM: ' + (error?.message || ''));
@@ -166,6 +187,7 @@ export const VSMPage: React.FC = () => {
     };
 
     setSelectedVsm(newEmptyVsm);
+    setModalInitialTab('sawtooth');
     setIsModalOpen(true);
   };
 
@@ -214,7 +236,7 @@ export const VSMPage: React.FC = () => {
         efficiency: payload.efficiency,
         takt_time: payload.takt_time,
         image_url: payload.image_url,
-        miro_link: payload.miro_link,
+        miro_link: cleanMiroUrl(payload.miro_link) || null,
         description: payload.description,
         company_id: targetCompanyId,
       };
@@ -420,6 +442,7 @@ export const VSMPage: React.FC = () => {
                 vsm={vsm}
                 onSelect={(selected) => {
                   setSelectedVsm(selected);
+                  setModalInitialTab('sawtooth');
                   setIsModalOpen(true);
                 }}
                 onToggleStatus={handleToggleStatus}
@@ -464,6 +487,7 @@ export const VSMPage: React.FC = () => {
         onDelete={handleDeleteVsm}
         users={users}
         onUploadImage={handleImageUpload}
+        initialTab={modalInitialTab}
       />
     </div>
   );

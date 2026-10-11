@@ -66,22 +66,92 @@ export const DEFAULT_VSM_STEPS: VSMStep[] = [
 ];
 
 /**
- * Normaliza y extrae la URL embebible de Miro si es válida
+ * Limpia y normaliza cualquier URL de Miro o enlace externo para evitar errores de navegación relativa,
+ * protocolos rotos (ej: bhttps://) o código HTML iframe pegado accidentalmente.
+ */
+export function cleanMiroUrl(rawUrl: string | null | undefined): string {
+  if (!rawUrl) return '';
+  let url = rawUrl.trim();
+  if (!url) return '';
+
+  // 1. Si el usuario pegó el código iframe completo de Miro: <iframe src="..." ...>
+  const iframeMatch = url.match(/src=["']([^"']+)["']/i);
+  if (iframeMatch && iframeMatch[1]) {
+    url = iframeMatch[1].trim();
+  }
+
+  // 2. Corregir errores comunes de tipeo al inicio del protocolo (ej: "bhttps://", "vhttps://")
+  url = url.replace(/^[a-zA-Z]+(https?:\/\/)/i, '$1');
+
+  // 3. Corregir "https//" o "http//" sin dos puntos
+  url = url.replace(/^(https?)\/+/i, '$1://');
+
+  // 4. Corregir "htps://" o "htt://", etc.
+  url = url.replace(/^ht+ps?:\/\//i, (m) => (m.toLowerCase().includes('s') ? 'https://' : 'http://'));
+
+  // 5. Si no tiene protocolo (ej: miro.com/..., bit.ly, www.miro.com), agregar https://
+  if (!/^https?:\/\//i.test(url)) {
+    if (url.startsWith('//')) {
+      url = `https:${url}`;
+    } else {
+      url = `https://${url}`;
+    }
+  }
+
+  return url;
+}
+
+/**
+ * Determina el tipo de enlace de Miro para dar el feedback adecuado en la interfaz
+ */
+export function getMiroLinkType(url: string | null | undefined): 'board' | 'template' | 'external' | 'empty' {
+  if (!url || !url.trim()) return 'empty';
+  const clean = cleanMiroUrl(url);
+  if (!clean) return 'empty';
+
+  if (
+    clean.includes('miro.com/app/board/') ||
+    clean.includes('miro.com/board/') ||
+    clean.includes('miro.com/app/live-embed/') ||
+    clean.includes('miro.com/app/embed/')
+  ) {
+    return 'board';
+  }
+
+  if (
+    clean.includes('miro.com/es/plantillas/') ||
+    clean.includes('miro.com/templates/') ||
+    clean.includes('miro.com/template/')
+  ) {
+    return 'template';
+  }
+
+  return 'external';
+}
+
+/**
+ * Normaliza y extrae la URL embebible interactiva de Miro (Live Embed) si corresponde a un tablero válido
  */
 export function getMiroEmbedUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  const cleanUrl = url.trim();
+  const cleanUrl = cleanMiroUrl(url);
+  if (!cleanUrl) return null;
 
-  // Si ya es un embed de Miro
-  if (cleanUrl.includes('miro.com/app/embed/')) {
+  // Si ya es un live-embed oficial de Miro
+  if (cleanUrl.includes('miro.com/app/live-embed/')) {
     return cleanUrl;
+  }
+
+  // Si es un embed tradicional de Miro, migrar a live-embed moderno
+  if (cleanUrl.includes('miro.com/app/embed/')) {
+    return cleanUrl.replace('miro.com/app/embed/', 'miro.com/app/live-embed/');
   }
 
   // Si es un enlace de tablero: miro.com/app/board/<boardId>/ o miro.com/board/<boardId>/
   const boardMatch = cleanUrl.match(/miro\.com\/(?:app\/)?board\/([^/?#]+)/i);
   if (boardMatch && boardMatch[1]) {
     const boardId = boardMatch[1];
-    return `https://miro.com/app/embed/${boardId}/?autoplay=true&backLink=false`;
+    return `https://miro.com/app/live-embed/${boardId}/?embedMode=view_only_without_ui&backLink=false`;
   }
 
   return null;
