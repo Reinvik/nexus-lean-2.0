@@ -12,9 +12,9 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const VARIANTS = {
   primary:
-    'bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-slate-950 font-bold shadow-[0_0_15px_rgba(6,182,212,0.3)] active:scale-[0.98]',
+    'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-semibold shadow-sm active:scale-[0.98]',
   secondary:
-    'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold active:scale-[0.98]',
+    'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold shadow-sm active:scale-[0.98]',
   danger:
     'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-semibold active:scale-[0.98]',
   ghost:
@@ -24,8 +24,8 @@ const VARIANTS = {
 };
 
 const SIZES = {
-  sm: 'px-3 py-1.5 text-xs rounded-lg gap-1.5',
-  md: 'px-4 py-2.5 text-xs rounded-xl gap-2',
+  sm: 'px-3.5 py-2 text-xs rounded-lg gap-1.5',
+  md: 'px-4 py-2 text-xs rounded-lg gap-2',
   lg: 'px-5 py-3 text-sm rounded-xl gap-2.5',
 };
 

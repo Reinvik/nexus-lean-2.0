@@ -847,22 +847,18 @@ export const DashboardPage: React.FC = () => {
       >
         <button
           onClick={refreshData}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-bold text-sm h-[36px] whitespace-nowrap bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200 mr-3 shadow-sm font-sans"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all font-semibold text-xs whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 shadow-sm active:scale-[0.98] mr-2 font-sans"
           title="Recargar Empresas y Datos"
         >
-          <RefreshCw size={18} />
-          <span>Recargar Datos</span>
+          <RefreshCw size={14} />
+          <span>Actualizar</span>
         </button>
         <button
           onClick={toggleFullScreen}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-bold text-sm h-[36px] whitespace-nowrap font-sans ${
-            isFullScreen
-              ? 'bg-indigo-50 text-indigo-600'
-              : 'hover:bg-slate-50 text-slate-500 hover:text-slate-800'
-          }`}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all font-semibold text-xs whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-sm active:scale-[0.98] font-sans"
           title={isFullScreen ? 'Salir de Pantalla Completa' : 'Pantalla Completa'}
         >
-          {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          {isFullScreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           <span className="hidden sm:inline">
             {isFullScreen ? 'Salir' : 'Pantalla Completa'}
           </span>

@@ -264,9 +264,9 @@ export const AuditsPage: React.FC = () => {
 
           <Button
             variant="primary"
-            size="md"
+            size="sm"
             onClick={() => setIsModalOpen(true)}
-            leftIcon={<Plus size={16} />}
+            leftIcon={<Plus size={14} />}
           >
             Ejecutar Auditoría
           </Button>

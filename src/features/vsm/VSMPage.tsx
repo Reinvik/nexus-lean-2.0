@@ -320,9 +320,9 @@ export const VSMPage: React.FC = () => {
       >
         <button
           onClick={handleNewVsm}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md hover:shadow-lg h-[38px]"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg font-semibold text-xs transition-all shadow-sm active:scale-[0.98]"
         >
-          <Plus size={16} />
+          <Plus size={14} />
           <span>Nuevo Mapa VSM</span>
         </button>
       </HeaderWithFilter>

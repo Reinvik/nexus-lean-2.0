@@ -565,9 +565,9 @@ export const CompaniesPage: React.FC = () => {
 
           <Link
             to="/admin/companies"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 text-white shadow-sm transition-all"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-slate-800 text-white border border-slate-700 shadow-sm transition-all"
           >
-            <Building2 size={16} />
+            <Building2 size={15} />
             <span>Empresas</span>
             <span className="px-1.5 py-0.2 bg-white/20 rounded-full text-[11px]">
               {companies.length}
@@ -591,19 +591,20 @@ export const CompaniesPage: React.FC = () => {
               setSelectedPresetForNew('enterprise_all');
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
           >
-            <Plus size={16} />
+            <Plus size={14} />
             <span>+ Nueva Empresa</span>
           </button>
 
           <button
             onClick={loadData}
             disabled={loading}
-            className="p-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl transition-all shadow-sm disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
             title="Actualizar datos"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Actualizar</span>
           </button>
         </div>
       </div>

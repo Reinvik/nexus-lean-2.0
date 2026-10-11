@@ -824,9 +824,9 @@ export const A3Page: React.FC = () => {
             <button
               type="button"
               onClick={handleNewA3}
-              className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all shrink-0"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-semibold rounded-lg shadow-sm active:scale-[0.98] transition-all shrink-0"
             >
-              <Plus size={16} />
+              <Plus size={14} />
               <span>+ Nuevo Proyecto A3</span>
             </button>
           </HeaderWithFilter>
@@ -1200,16 +1200,16 @@ export const A3Page: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsShareModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl shadow-xs transition-all shrink-0"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-lg shadow-sm active:scale-[0.98] transition-all shrink-0"
                   title="Compartir tareas pendientes por correo electrónico"
                 >
-                  <Mail size={15} />
+                  <Mail size={14} />
                   <span className="hidden sm:inline">Compartir Tareas</span>
                   {(() => {
                     const acts = (selectedA3.actionPlan || selectedA3.action_plan || []) as A3ActionPlanItem[];
                     const pendCount = acts.filter((a) => a.status !== 'completed').length;
                     return pendCount > 0 ? (
-                      <span className="ml-0.5 px-1.5 py-0.2 text-[10px] bg-indigo-600 text-white font-black rounded-full">
+                      <span className="ml-0.5 px-1.5 py-0.2 text-[10px] bg-white/20 text-white font-black rounded-full">
                         {pendCount}
                       </span>
                     ) : null;
@@ -1222,9 +1222,9 @@ export const A3Page: React.FC = () => {
                 type="button"
                 onClick={handleSaveProject}
                 disabled={isSaving || isAutoSaving}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all shrink-0"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white border border-slate-700 text-xs font-semibold rounded-lg shadow-sm active:scale-[0.98] transition-all shrink-0"
               >
-                <Save size={15} />
+                <Save size={14} />
                 <span>{isSaving ? 'Guardando...' : 'Guardar A3'}</span>
               </button>
 

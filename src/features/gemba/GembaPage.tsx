@@ -320,30 +320,31 @@ export const GembaPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsNewRouteModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
           >
-            <MapPin size={15} />
+            <MapPin size={14} />
             <span>+ Nueva Ruta</span>
           </button>
 
           <button
             onClick={() => setIsNewWalkModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-rose-600/20"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
           >
-            <Plus size={16} />
+            <Plus size={14} />
             <span>+ Iniciar Caminata</span>
           </button>
 
           <button
             onClick={loadData}
             disabled={loading}
-            className="p-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl transition-all shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
             title="Actualizar datos"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-rose-600' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Actualizar</span>
           </button>
         </div>
       </div>
@@ -397,9 +398,9 @@ export const GembaPage: React.FC = () => {
       <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto pb-1">
         <button
           onClick={() => setActiveTab('walks')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all ${
             activeTab === 'walks'
-              ? 'bg-rose-600 text-white shadow-sm'
+              ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
@@ -412,9 +413,9 @@ export const GembaPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('routes')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all ${
             activeTab === 'routes'
-              ? 'bg-rose-600 text-white shadow-sm'
+              ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
@@ -427,9 +428,9 @@ export const GembaPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('findings')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all ${
             activeTab === 'findings'
-              ? 'bg-rose-600 text-white shadow-sm'
+              ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
@@ -442,9 +443,9 @@ export const GembaPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('kudos')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all ${
             activeTab === 'kudos'
-              ? 'bg-rose-600 text-white shadow-sm'
+              ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
@@ -457,9 +458,9 @@ export const GembaPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('kpis')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all ${
             activeTab === 'kpis'
-              ? 'bg-rose-600 text-white shadow-sm'
+              ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
@@ -565,7 +566,7 @@ export const GembaPage: React.FC = () => {
                       {walk.status !== 'completada' ? (
                         <button
                           onClick={() => setActiveRunningWalk(walk)}
-                          className="w-full flex items-center justify-center gap-1.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-rose-600/20"
+                          className="w-full flex items-center justify-center gap-1.5 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
                         >
                           <Play size={14} />
                           <span>{walk.status === 'en_curso' ? 'Continuar en Piso' : 'Iniciar Ahora'}</span>
@@ -573,7 +574,7 @@ export const GembaPage: React.FC = () => {
                       ) : (
                         <button
                           onClick={() => setActiveRunningWalk(walk)}
-                          className="w-full flex items-center justify-center gap-1.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
+                          className="w-full flex items-center justify-center gap-1.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-all"
                         >
                           <Footprints size={14} />
                           <span>Ver Resumen & Hallazgos</span>
@@ -593,9 +594,9 @@ export const GembaPage: React.FC = () => {
                 </p>
                 <button
                   onClick={() => setIsNewWalkModalOpen(true)}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition-all shadow-sm"
+                  className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
                 >
-                  <Plus size={15} />
+                  <Plus size={14} />
                   <span>+ Iniciar Primera Caminata</span>
                 </button>
               </div>
@@ -644,7 +645,7 @@ export const GembaPage: React.FC = () => {
                             key={idx}
                             className="flex items-center gap-2 text-xs bg-slate-50 p-2 rounded-lg border border-slate-100"
                           >
-                            <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                            <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-800 font-bold text-[10px] flex items-center justify-center shrink-0">
                               {idx + 1}
                             </span>
                             <span className="font-semibold text-slate-800 truncate">
@@ -662,7 +663,7 @@ export const GembaPage: React.FC = () => {
                         // Crear caminata automática en esta ruta
                         setIsNewWalkModalOpen(true);
                       }}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all border border-rose-200"
+                      className="w-full flex items-center justify-center gap-1.5 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
                     >
                       <Play size={14} />
                       <span>Iniciar Ronda en esta Ruta</span>
@@ -681,9 +682,9 @@ export const GembaPage: React.FC = () => {
                 </p>
                 <button
                   onClick={() => setIsNewRouteModalOpen(true)}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition-all shadow-sm"
+                  className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
                 >
-                  <Plus size={15} />
+                  <Plus size={14} />
                   <span>+ Crear Nueva Ruta</span>
                 </button>
               </div>

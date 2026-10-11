@@ -34,9 +34,9 @@ export const SettingsPage: React.FC = () => {
 
           <Link
             to="/admin/settings"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 text-white shadow-sm transition-all"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-slate-800 text-white border border-slate-700 shadow-sm transition-all"
           >
-            <Settings size={16} />
+            <Settings size={15} />
             <span>Configuración</span>
           </Link>
         </div>
