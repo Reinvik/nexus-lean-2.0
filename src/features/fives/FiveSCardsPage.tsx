@@ -107,38 +107,45 @@ export const FiveSCardsPage: React.FC = () => {
     return user.company_id || user.companyId || null;
   }, [user, globalFilterCompanyId, activeCompanyId]);
 
-  // Fetch Cards
+  // Carga paralela ultrarrápida
   const fetchCards = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Fetch profiles to map assigned_to -> responsible if needed
-      const { data: profData } = await supabase.from('profiles').select('id, full_name, email');
-      const profileMap = new Map<string, string>();
-      (profData || []).forEach((p: any) => {
-        if (p.id) {
-          profileMap.set(p.id, p.full_name?.trim() || p.email?.trim() || '');
-        }
-      });
-
-      let query = supabase
+      let cardsQuery = supabase
         .from('five_s_cards')
         .select('*')
         .order('created_at', { ascending: false });
 
+      let profilesQuery = supabase
+        .from('profiles')
+        .select('id, full_name, email, role, company_id');
+
       if (!user.isGlobalAdmin) {
         const comp = user.company_id || user.companyId;
-        if (comp) query = query.eq('company_id', comp);
-      } else {
-        if (globalFilterCompanyId && globalFilterCompanyId !== 'all') {
-          query = query.eq('company_id', globalFilterCompanyId);
+        if (comp) {
+          cardsQuery = cardsQuery.eq('company_id', comp);
+          profilesQuery = profilesQuery.eq('company_id', comp);
         }
+      } else if (globalFilterCompanyId && globalFilterCompanyId !== 'all') {
+        cardsQuery = cardsQuery.eq('company_id', globalFilterCompanyId);
+        profilesQuery = profilesQuery.eq('company_id', globalFilterCompanyId);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      // Ejecutar ambas consultas en paralelo en un único viaje de red
+      const [cardsRes, profRes] = await Promise.all([cardsQuery, profilesQuery]);
+      if (cardsRes.error) throw cardsRes.error;
 
-      const mappedCards: FiveSCard[] = (data || []).map((c: any) => {
+      const profileMap = new Map<string, string>();
+      const profList = (profRes.data || []) as Profile[];
+      profList.forEach((p: any) => {
+        if (p.id) {
+          profileMap.set(p.id, p.full_name?.trim() || p.email?.trim() || '');
+        }
+      });
+      setUsers(profList);
+
+      const mappedCards: FiveSCard[] = (cardsRes.data || []).map((c: any) => {
         let color = '#ef4444';
         if (c.status === 'En Proceso' || c.status === 'En Progreso') color = '#f59e0b';
         if (c.status === 'Cerrado') color = '#10b981';
@@ -181,28 +188,9 @@ export const FiveSCardsPage: React.FC = () => {
     }
   }, [user, globalFilterCompanyId]);
 
-  // Fetch Users
-  const fetchProfiles = useCallback(async () => {
-    if (!user) return;
-    try {
-      let query = supabase.from('profiles').select('*');
-      if (!user.isGlobalAdmin) {
-        const comp = user.company_id || user.companyId;
-        if (comp) query = query.eq('company_id', comp);
-      } else if (globalFilterCompanyId && globalFilterCompanyId !== 'all') {
-        query = query.eq('company_id', globalFilterCompanyId);
-      }
-      const { data, error } = await query;
-      if (!error && data) setUsers(data as Profile[]);
-    } catch (err) {
-      console.warn('Could not fetch profiles:', err);
-    }
-  }, [user, globalFilterCompanyId]);
-
   useEffect(() => {
     fetchCards();
-    fetchProfiles();
-  }, [fetchCards, fetchProfiles]);
+  }, [fetchCards]);
 
   // Unique Lists for Filters
   const personSuggestions = useMemo(() => {
@@ -863,6 +851,8 @@ export const FiveSCardsPage: React.FC = () => {
                         <img
                           src={beforeImg}
                           alt="Antes"
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                         <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] uppercase font-bold text-center py-0.5 backdrop-blur-sm">
@@ -880,6 +870,8 @@ export const FiveSCardsPage: React.FC = () => {
                         <img
                           src={afterImg}
                           alt="Después"
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                         <span className="absolute bottom-0 left-0 right-0 bg-emerald-600/80 text-white text-[8px] uppercase font-bold text-center py-0.5 backdrop-blur-sm">

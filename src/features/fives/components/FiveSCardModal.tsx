@@ -137,23 +137,102 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Upload an image to Supabase Storage
-  const uploadFileToSupabase = async (file: File): Promise<string | null> => {
+  // Helper: Comprimir imagen en el cliente para evitar payloads gigantes
+  const compressImage = async (
+    file: File,
+    maxDim = 1280,
+    quality = 0.82
+  ): Promise<{ file: File; fallbackDataUrl: string }> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () =>
+          resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File(
+                  [blob],
+                  file.name.replace(/\.[^/.]+$/, '.jpg'),
+                  { type: 'image/jpeg', lastModified: Date.now() }
+                );
+                resolve({ file: compressedFile, fallbackDataUrl: dataUrl });
+              } else {
+                resolve({ file, fallbackDataUrl: dataUrl });
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        } else {
+          const reader = new FileReader();
+          reader.onloadend = () =>
+            resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
+          reader.readAsDataURL(file);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        const reader = new FileReader();
+        reader.onloadend = () =>
+          resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
+        reader.readAsDataURL(file);
+      };
+      img.src = objectUrl;
+    });
+  };
+
+  // Upload an image to Supabase Storage con compresión
+  const uploadFileToSupabase = async (rawFile: File): Promise<string | null> => {
+    let fileToUpload = rawFile;
+    let fallbackDataUrl = '';
+
     try {
-      const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
+      // 1. Comprimir en cliente (de ~5MB a ~120KB)
+      const compressionResult = await compressImage(rawFile);
+      fileToUpload = compressionResult.file;
+      fallbackDataUrl = compressionResult.fallbackDataUrl;
+
+      const fileExt = fileToUpload.name ? fileToUpload.name.split('.').pop() : 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
       const companyPath = targetCompanyId || 'default';
       const filePath = `${companyPath}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('five-s-images')
-        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+        .upload(filePath, fileToUpload, { cacheControl: '31536000', upsert: true });
 
       if (uploadError) {
         // Fallback to 'images' bucket
         const { error: fallbackErr } = await supabase.storage
           .from('images')
-          .upload(`5s/${filePath}`, file, { cacheControl: '3600', upsert: true });
+          .upload(`5s/${filePath}`, fileToUpload, { cacheControl: '31536000', upsert: true });
 
         if (!fallbackErr) {
           const { data } = supabase.storage.from('images').getPublicUrl(`5s/${filePath}`);
@@ -165,13 +244,8 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
       const { data } = supabase.storage.from('five-s-images').getPublicUrl(filePath);
       return data.publicUrl;
     } catch (err) {
-      console.warn('Upload failed, creating data URL fallback:', err);
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(file);
-      });
+      console.warn('Upload failed, using compressed fallback data URL:', err);
+      return fallbackDataUrl || null;
     }
   };
 
