@@ -24,6 +24,7 @@ import {
   FileText,
   Activity,
   Brain,
+  Footprints,
   type LucideIcon,
 } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
@@ -170,6 +171,23 @@ export const AVAILABLE_MODULES: LeanModuleDef[] = [
       iconText: 'text-fuchsia-600',
     },
   },
+  {
+    key: 'gemba_walk',
+    name: 'Gemba Walk',
+    shortName: 'Gemba Walk',
+    description: 'Rondas estandarizadas de liderazgo, captura de mudas y coaching en piso',
+    icon: Footprints,
+    color: {
+      bg: 'bg-rose-50/60',
+      text: 'text-rose-800',
+      border: 'border-rose-200',
+      badgeBg: 'bg-rose-50',
+      badgeText: 'text-rose-700',
+      badgeBorder: 'border-rose-200',
+      iconBg: 'bg-rose-100 text-rose-700',
+      iconText: 'text-rose-600',
+    },
+  },
 ];
 
 // ---------------------------------------------------------
@@ -202,22 +220,31 @@ export const ROLE_PRESETS: RolePreset[] = [
     id: 'lean_expert',
     name: 'Lean Avanzado',
     badge: 'Metodología Total',
-    description: 'Todo el paquete metodológico Lean (A3 y VSM incluidos, sin IA)',
-    modules: ['5s', 'auditoria_5s', 'quick_wins', 'a3', 'vsm', 'responsables'],
+    description: 'Todo el paquete metodológico Lean (A3, VSM y Gemba Walk incluidos, sin IA)',
+    modules: ['5s', 'auditoria_5s', 'quick_wins', 'a3', 'vsm', 'gemba_walk', 'responsables'],
   },
   {
     id: 'enterprise_all',
     name: 'Lean Enterprise + IA',
     badge: 'Ecosistema Total',
-    description: 'Acceso ilimitado a todos los 7 módulos y Consultor IA',
-    modules: ['5s', 'auditoria_5s', 'quick_wins', 'a3', 'vsm', 'responsables', 'consultor_ia'],
+    description: 'Acceso ilimitado a todos los 8 módulos y Consultor IA',
+    modules: [
+      '5s',
+      'auditoria_5s',
+      'quick_wins',
+      'a3',
+      'vsm',
+      'gemba_walk',
+      'responsables',
+      'consultor_ia',
+    ],
   },
 ];
 
 // Helper para normalizar módulos de una empresa desde la base de datos
 export const normalizeCompanyModules = (compModules?: string[] | null): string[] => {
   if (!compModules || !Array.isArray(compModules) || compModules.length === 0) {
-    // Si no tiene módulos definidos, por defecto se asumen todos los 7 módulos
+    // Si no tiene módulos definidos, por defecto se asumen todos los módulos
     return AVAILABLE_MODULES.map((m) => m.key);
   }
 
@@ -236,6 +263,8 @@ export const normalizeCompanyModules = (compModules?: string[] | null): string[]
       set.add('5s');
     } else if (clean === 'vsm') {
       set.add('vsm');
+    } else if (clean === 'gemba' || clean === 'gemba_walk' || clean === 'gemba_walks') {
+      set.add('gemba_walk');
     } else if (clean === 'responsables') {
       set.add('responsables');
     }

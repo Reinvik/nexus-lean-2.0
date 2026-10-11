@@ -11,6 +11,7 @@ import {
   Zap,
   Users,
   Brain,
+  Footprints,
   Settings,
   X,
   Camera,
@@ -66,6 +67,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         return allowedSet.has('a3') || allowedSet.has('a3_projects');
       case 'vsm':
         return allowedSet.has('vsm');
+      case 'gemba_walk':
+        return (
+          allowedSet.has('gemba_walk') ||
+          allowedSet.has('gemba') ||
+          allowedSet.has('gemba_walks')
+        );
       case 'quick_wins':
         return (
           allowedSet.has('quick_wins') ||
@@ -88,6 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       : []),
     { icon: ClipboardList, label: 'Tarjetas 5S', path: '/5s', moduleId: '5s' },
     { icon: ShieldCheck, label: 'Auditoría 5S', path: '/auditorias-5s', moduleId: 'audits' },
+    { icon: Footprints, label: 'Gemba Walk', path: '/gemba', moduleId: 'gemba_walk' },
     { icon: FileText, label: 'Proyectos A3', path: '/a3', moduleId: 'a3' },
     { icon: Activity, label: 'Mapeo de Procesos', path: '/vsm', moduleId: 'vsm' },
     { icon: Zap, label: 'Quick Wins', path: '/quick-wins', moduleId: 'quick_wins' },

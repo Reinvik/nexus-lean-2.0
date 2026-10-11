@@ -300,3 +300,87 @@ export interface VSMProcess {
   operators: number;
   wipInventory: number;
 }
+
+// -------------------------------------------------------------
+// Gemba Walk Module Types
+// -------------------------------------------------------------
+export type GembaWalkStatus = 'programada' | 'en_curso' | 'completada' | 'cancelada';
+export type GembaFindingType =
+  | 'desperdicio_muda'
+  | 'seguridad'
+  | 'calidad'
+  | 'estandar'
+  | 'reconocimiento_positivo';
+export type GembaMudaCategory =
+  | 'sobreproduccion'
+  | 'espera'
+  | 'transporte'
+  | 'sobreprocesamiento'
+  | 'inventario'
+  | 'movimiento'
+  | 'defectos'
+  | 'talento';
+
+export interface GembaStation {
+  id: string;
+  name: string;
+  area: string;
+  standardNotes?: string;
+  orderIndex: number;
+}
+
+export interface GembaRoute {
+  id: string;
+  company_id: string;
+  companyId?: string;
+  name: string;
+  area: string;
+  description?: string;
+  focus_theme: string;
+  stations: GembaStation[];
+  estimated_duration_min: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface GembaWalk {
+  id: string;
+  company_id: string;
+  companyId?: string;
+  route_id?: string | null;
+  title: string;
+  area: string;
+  walker_id?: string | null;
+  walker_name: string;
+  companion_names?: string[];
+  scheduled_date: string;
+  status: GembaWalkStatus;
+  start_time?: string | null;
+  end_time?: string | null;
+  focus_theme?: string;
+  summary_notes?: string | null;
+  coaching_notes?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface GembaFinding {
+  id: string;
+  company_id: string;
+  companyId?: string;
+  walk_id: string;
+  station_name: string;
+  operator_name?: string | null;
+  finding_type: GembaFindingType;
+  muda_category?: GembaMudaCategory | null;
+  description: string;
+  image_url?: string | null;
+  audio_note_url?: string | null;
+  immediate_action?: string | null;
+  derived_type?: 'ninguna' | 'quick_win' | 'five_s' | 'a3' | string;
+  derived_record_id?: string | null;
+  status: 'abierto' | 'en_proceso' | 'cerrado';
+  created_at: string;
+  updated_at?: string;
+}

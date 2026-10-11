@@ -90,7 +90,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const allowedModules =
         prof?.allowed_modules ||
         companyAllowedModules ||
-        ['5s', 'audits', 'quick_wins', 'a3', 'vsm', 'responsables', 'consultor_ia'];
+        [
+          '5s',
+          'audits',
+          'quick_wins',
+          'a3',
+          'vsm',
+          'gemba_walk',
+          'responsables',
+          'consultor_ia',
+        ];
 
       const nexusUser: NexusUser = {
         id: userId,

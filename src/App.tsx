@@ -17,6 +17,7 @@ const AuditsPage = lazy(() => import('./features/audits/AuditsPage'));
 const QuickWinsPage = lazy(() => import('./features/quick-wins/QuickWinsPage'));
 const A3Page = lazy(() => import('./features/a3/A3Page'));
 const VSMPage = lazy(() => import('./features/vsm/VSMPage'));
+const GembaPage = lazy(() => import('./features/gemba/GembaPage'));
 const ResponsablesPage = lazy(() => import('./features/responsables/ResponsablesPage'));
 const ConsultantPage = lazy(() => import('./features/consultant/ConsultantPage'));
 const OfflinePage = lazy(() => import('./features/offline/OfflinePage'));
@@ -86,6 +87,8 @@ export const App: React.FC = () => {
               <Route path="quick-wins" element={<QuickWinsPage />} />
               <Route path="a3" element={<A3Page />} />
               <Route path="a3-projects" element={<A3Page />} />
+              <Route path="gemba" element={<GembaPage />} />
+              <Route path="gemba-walk" element={<GembaPage />} />
               <Route path="vsm" element={<VSMPage />} />
               <Route path="responsables" element={<ResponsablesPage />} />
               <Route path="consultant" element={<ConsultantPage />} />
