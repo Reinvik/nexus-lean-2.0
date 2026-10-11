@@ -10,6 +10,7 @@ import {
   Lightbulb,
   ChevronDown,
   FileDown,
+  LayoutDashboard,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -384,75 +385,110 @@ export const QuickWinsPage: React.FC = () => {
         activeTab === 'causas' ? 'max-w-[96vw] xl:max-w-[1600px]' : 'max-w-7xl'
       } mx-auto space-y-6 pb-20 transition-all duration-300 animate-in fade-in`}
     >
-      {/* Top Header with Tab Switcher & Action Buttons */}
+      {/* Top Header with Module Actions & Company Filter */}
       <HeaderWithFilter
         title="Quick Wins"
         subtitle="Registro y seguimiento de mejoras rápidas de alto impacto"
       >
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Export to Excel */}
           <button
             onClick={handleExport}
             disabled={isExporting || allWins.length === 0}
-            className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md disabled:opacity-50 h-[38px]"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-lg font-bold text-xs uppercase tracking-wide transition-all shadow-sm active:scale-95 disabled:opacity-50 h-[36px] shrink-0"
+            title="Exportar listado de Quick Wins a Excel"
           >
             {isExporting ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
             ) : (
-              <FileDown size={16} />
+              <FileDown size={14} className="text-emerald-600" />
             )}
-            <span>{isExporting ? 'Exportando...' : 'Exportar Excel'}</span>
+            <span className="hidden sm:inline">{isExporting ? 'Exportando...' : 'Exportar Excel'}</span>
           </button>
-
-          <div className="w-px h-6 bg-slate-700 hidden md:block" />
-
-          {/* Dark Pill Tab Selector */}
-          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700 shadow-inner">
-            <button
-              onClick={() => setActiveTab('resumen')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all ${
-                activeTab === 'resumen'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Plus size={14} />
-              <span>Resumen</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('matriz')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all ${
-                activeTab === 'matriz'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Target size={14} />
-              <span>Priorización</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('causas')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all ${
-                activeTab === 'causas'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Filter size={14} />
-              <span>Causas Raíz</span>
-            </button>
-          </div>
 
           {/* Nueva Idea Button */}
           <button
             onClick={() => setIsNewModalOpen(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition-all shadow-md hover:shadow-lg font-black text-xs uppercase tracking-wider h-[38px]"
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-3.5 py-1.5 rounded-lg transition-all shadow-sm hover:shadow-md font-bold text-xs uppercase tracking-wide active:scale-95 h-[36px] shrink-0"
+            title="Registrar nueva idea de mejora rápida"
           >
             <Plus size={16} />
             <span>Nueva Idea</span>
           </button>
         </div>
       </HeaderWithFilter>
+
+      {/* High-Contrast Navigation / View Mode Toolbar */}
+      <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Segmented Control */}
+        <div className="flex flex-wrap sm:flex-nowrap bg-slate-100 p-1 rounded-xl border border-slate-200/80 gap-1 w-full md:w-auto">
+          <button
+            onClick={() => setActiveTab('resumen')}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+              activeTab === 'resumen'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+            }`}
+          >
+            <LayoutDashboard size={14} />
+            <span>Resumen (Kanban)</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                activeTab === 'resumen'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              {filteredWins.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('matriz')}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+              activeTab === 'matriz'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+            }`}
+          >
+            <Target size={14} />
+            <span>Priorización (2x2)</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                activeTab === 'matriz'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              {allWins.filter((w) => w.status !== 'done').length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('causas')}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+              activeTab === 'causas'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+            }`}
+          >
+            <Filter size={14} />
+            <span>Causas Raíz</span>
+          </button>
+        </div>
+
+        {/* View Description & Total Counter */}
+        <div className="flex items-center justify-between md:justify-end gap-3 px-2 text-xs text-slate-500 font-medium">
+          <span className="hidden lg:inline text-slate-500">
+            {activeTab === 'resumen' && 'Tablero visual de ideas pendientes y completadas'}
+            {activeTab === 'matriz' && 'Matriz de cuadrantes: Alto Impacto vs Menor Esfuerzo'}
+            {activeTab === 'causas' && 'Clasificación de acciones por espina de pescado (Ishikawa)'}
+          </span>
+          <span className="text-[11px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
+            {allWins.length} {allWins.length === 1 ? 'idea registrada' : 'ideas registradas'}
+          </span>
+        </div>
+      </div>
 
       {/* Tab 1: Resumen (Kanban View) */}
       {activeTab === 'resumen' && (

@@ -69,6 +69,14 @@ export const DrillDownModal: React.FC<DrillDownModalProps> = ({
           { header: 'Estado', accessor: 'status', width: 'w-32' },
           { header: 'Responsable', accessor: 'responsible', width: 'w-48' },
         ];
+      case 'a3':
+        return [
+          { header: 'ID', accessor: 'id', width: 'w-16' },
+          { header: 'Proyecto A3', accessor: 'title', width: 'flex-1' },
+          { header: 'Estado', accessor: 'status', width: 'w-32' },
+          { header: 'Avance Tareas', accessor: 'progressStr', width: 'w-36' },
+          { header: 'Responsable', accessor: 'responsible', width: 'w-48' },
+        ];
       default:
         return [];
     }
@@ -156,6 +164,8 @@ export const DrillDownModal: React.FC<DrillDownModalProps> = ({
       targetPath = `/quick-wins?winId=${item.id}`;
     } else if (type === 'vsm') {
       targetPath = `/vsm?vsmId=${item.id}`;
+    } else if (type === 'a3') {
+      targetPath = `/a3?projectId=${item.id}`;
     }
 
     if (targetPath) {

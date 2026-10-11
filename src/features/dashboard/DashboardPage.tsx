@@ -296,20 +296,34 @@ export const DashboardPage: React.FC = () => {
         }));
 
         // Process A3 Projects
-        const a3List: DashboardA3Item[] = (a3Res.data || []).map((p: any) => ({
-          id: p.id,
-          companyId: p.company_id,
-          title: p.title,
-          status: p.status,
-          responsible: p.responsible,
-          created_at: p.created_at,
-          actionPlan: p.action_plan || [],
-          followUpData: Array.isArray(p.follow_up_data)
-            ? p.follow_up_data
-            : p.follow_up_data && Object.keys(p.follow_up_data).length > 0
-            ? [p.follow_up_data]
-            : [],
-        }));
+        const a3List: DashboardA3Item[] = (a3Res.data || []).map((p: any) => {
+          let parsedPlan: any[] = [];
+          if (Array.isArray(p.action_plan)) {
+            parsedPlan = p.action_plan;
+          } else if (typeof p.action_plan === 'string') {
+            try {
+              const res = JSON.parse(p.action_plan);
+              if (Array.isArray(res)) parsedPlan = res;
+            } catch {
+              parsedPlan = [];
+            }
+          }
+
+          return {
+            id: p.id,
+            companyId: p.company_id,
+            title: p.title,
+            status: p.status,
+            responsible: p.responsible,
+            created_at: p.created_at,
+            actionPlan: parsedPlan,
+            followUpData: Array.isArray(p.follow_up_data)
+              ? p.follow_up_data
+              : p.follow_up_data && Object.keys(p.follow_up_data).length > 0
+              ? [p.follow_up_data]
+              : [],
+          };
+        });
 
         // Build profiles map for human-readable names (never display raw UUIDs)
         const profileMap = new Map<string, string>();
@@ -553,21 +567,60 @@ export const DashboardPage: React.FC = () => {
     const vsmCount = vsms.length;
 
     // A3 Metrics based on Action Plan Tasks
-    let totalA3Actions = 0;
-    let completedA3Actions = 0;
+    let totalA3Tasks = 0;
+    let totalProgressSum = 0;
+    let completedA3Tasks = 0;
 
     a3.forEach((project) => {
-      if (Array.isArray(project.actionPlan)) {
-        totalA3Actions += project.actionPlan.length;
-        completedA3Actions += project.actionPlan.filter(
-          (action: any) => action.status === 'done'
-        ).length;
+      let actions = (project.actionPlan || project.action_plan || []) as any[];
+      if (typeof actions === 'string') {
+        try {
+          actions = JSON.parse(actions);
+        } catch {
+          actions = [];
+        }
+      }
+
+      if (Array.isArray(actions)) {
+        actions.forEach((task: any) => {
+          totalA3Tasks += 1;
+
+          let taskProgress = 0;
+          const isDone =
+            task.status === 'completed' ||
+            task.status === 'done' ||
+            task.status === 'Completada' ||
+            task.status === 'completado';
+
+          if (isDone) {
+            taskProgress = 100;
+            completedA3Tasks += 1;
+          } else if (typeof task.progress === 'number' && !isNaN(task.progress)) {
+            taskProgress = Math.max(0, Math.min(100, task.progress));
+            if (taskProgress === 100) completedA3Tasks += 1;
+          } else if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+            const completedSubs = task.subtasks.filter((s: any) => s.completed).length;
+            taskProgress = Math.round((completedSubs / task.subtasks.length) * 100);
+            if (taskProgress === 100) completedA3Tasks += 1;
+          } else {
+            taskProgress = 0;
+          }
+
+          totalProgressSum += taskProgress;
+        });
       }
     });
 
-    const a3CompletionRate =
-      totalA3Actions > 0
-        ? Math.round((completedA3Actions / totalA3Actions) * 100)
+    const a3AvgProgress =
+      totalA3Tasks > 0
+        ? Math.round(totalProgressSum / totalA3Tasks)
+        : a3.length > 0
+        ? Math.round(
+            (a3.filter((p) => p.status === 'Completado' || p.status === 'Cerrado')
+              .length /
+              a3.length) *
+              100
+          )
         : 0;
 
     return {
@@ -585,8 +638,10 @@ export const DashboardPage: React.FC = () => {
       vsm: { count: vsmCount },
       a3: {
         total: a3.length,
-        closed: a3.filter((p) => p.status === 'Cerrado').length,
-        rate: a3CompletionRate,
+        closed: a3.filter((p) => p.status === 'Cerrado' || p.status === 'Completado').length,
+        rate: a3AvgProgress,
+        totalTasks: totalA3Tasks,
+        completedTasks: completedA3Tasks,
       },
     };
   }, [filteredData]);
@@ -617,6 +672,47 @@ export const DashboardPage: React.FC = () => {
       modalData = filteredData.vsms;
     } else if (type === 'high_impact') {
       modalData = filteredData.quickWins.filter((w) => w.impact === 'Alto');
+    } else if (type === 'a3') {
+      modalData = filteredData.a3.map((p) => {
+        let actions = (p.actionPlan || p.action_plan || []) as any[];
+        if (typeof actions === 'string') {
+          try {
+            actions = JSON.parse(actions);
+          } catch {
+            actions = [];
+          }
+        }
+        const total = Array.isArray(actions) ? actions.length : 0;
+        let sum = 0;
+        let done = 0;
+        if (Array.isArray(actions)) {
+          actions.forEach((a) => {
+            let pr = 0;
+            const isDone =
+              a.status === 'completed' ||
+              a.status === 'done' ||
+              a.status === 'Completada' ||
+              a.status === 'completado';
+            if (isDone) {
+              pr = 100;
+              done++;
+            } else if (typeof a.progress === 'number' && !isNaN(a.progress)) {
+              pr = Math.max(0, Math.min(100, a.progress));
+              if (pr === 100) done++;
+            } else if (Array.isArray(a.subtasks) && a.subtasks.length > 0) {
+              const sc = a.subtasks.filter((s: any) => s.completed).length;
+              pr = Math.round((sc / a.subtasks.length) * 100);
+              if (pr === 100) done++;
+            }
+            sum += pr;
+          });
+        }
+        const avg = total > 0 ? Math.round(sum / total) : 0;
+        return {
+          ...p,
+          progressStr: total > 0 ? `${avg}% (${done}/${total} tareas)` : 'Sin tareas',
+        };
+      });
     }
 
     setDrillDown({
@@ -980,7 +1076,10 @@ export const DashboardPage: React.FC = () => {
 
           {/* CARD 3: A3 PROJECTS */}
           {(user?.allowedModules || ['a3']).includes('a3') && (
-            <div className="bg-white p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col items-center relative overflow-hidden h-[280px]">
+            <div
+              onClick={() => handleDrillDown('a3', 'Detalle de Proyectos A3')}
+              className="bg-white p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col items-center relative overflow-hidden h-[280px] cursor-pointer hover:shadow-lg transition-shadow"
+            >
               <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 z-10 flex items-center gap-2 font-sans">
                 <Activity size={16} /> Proyectos A3
               </h4>
@@ -999,7 +1098,7 @@ export const DashboardPage: React.FC = () => {
                     <Pie
                       data={[
                         { value: metrics.a3.rate },
-                        { value: 100 - metrics.a3.rate },
+                        { value: Math.max(0, 100 - metrics.a3.rate) },
                       ]}
                       cx="50%"
                       cy="50%"
@@ -1011,8 +1110,8 @@ export const DashboardPage: React.FC = () => {
                       stroke="none"
                       cornerRadius={12}
                     >
-                      <Cell fill="url(#gradient-a3)" />
-                      <Cell fill="#f1f5f9" />
+                      <Cell fill="url(#gradient-a3)" strokeWidth={0} />
+                      <Cell fill="#f1f5f9" strokeWidth={0} />
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
