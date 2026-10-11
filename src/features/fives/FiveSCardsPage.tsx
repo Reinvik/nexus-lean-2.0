@@ -6,6 +6,7 @@ import StatCard from '../../components/common/StatCard';
 import FiveSCardModal from './components/FiveSCardModal';
 import PresentationModal from './components/PresentationModal';
 import HistoryModal from './components/HistoryModal';
+import { ImageLightbox } from '../../components/common/ImageLightbox';
 import type { FiveSCard, Profile, Company } from '../../types';
 import {
   Plus,
@@ -1175,27 +1176,11 @@ export const FiveSCardsPage: React.FC = () => {
       <HistoryModal isOpen={showHistory} onClose={() => setShowHistory(false)} />
 
       {/* Lightbox / Zoom */}
-      {zoomImage && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-200"
-          onClick={() => setZoomImage(null)}
-        >
-          <button
-            className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
-            onClick={() => setZoomImage(null)}
-          >
-            <X size={28} />
-          </button>
-          <img
-            src={zoomImage}
-            className="max-w-full max-h-full object-contain shadow-2xl rounded-lg animate-in zoom-in-95 duration-300"
-            alt="Zoom"
-          />
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10">
-            <p className="text-white/80 text-xs font-medium">Click fuera para cerrar</p>
-          </div>
-        </div>
-      )}
+      <ImageLightbox
+        imageUrl={zoomImage}
+        onClose={() => setZoomImage(null)}
+        altText="Evidencia fotográfica 5S"
+      />
     </div>
   );
 };
