@@ -326,6 +326,7 @@ export interface GembaStation {
   name: string;
   area: string;
   standardNotes?: string;
+  standardImageUrl?: string;
   orderIndex: number;
 }
 
@@ -365,6 +366,15 @@ export interface GembaWalk {
   updated_at?: string;
 }
 
+export interface GembaCommitmentMeta {
+  isHandshake: boolean;
+  daysAgreed: number;
+  dueDate: string;
+  leaderSupport?: string;
+  completedAt?: string | null;
+  afterImageUrl?: string | null;
+}
+
 export interface GembaFinding {
   id: string;
   company_id: string;
@@ -384,3 +394,4 @@ export interface GembaFinding {
   created_at: string;
   updated_at?: string;
 }
+
