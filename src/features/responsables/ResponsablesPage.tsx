@@ -29,6 +29,9 @@ import {
   Check,
   ArrowUpDown,
   Filter,
+  Kanban,
+  List,
+  LayoutGrid,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -43,6 +46,7 @@ import {
   ComposedChart,
 } from 'recharts';
 import toast from 'react-hot-toast';
+import ResponsablesKanbanBoard from './components/ResponsablesKanbanBoard';
 
 // Helper: Calculate ISO week number and year
 export const getISOWeekInfo = (
@@ -88,11 +92,24 @@ export interface TaskItem {
   rawStatus: string;
   createdAt: string;
   closeDate?: string;
+  deadline?: string;
   link: string;
   extra?: string;
   createdWeekKey: string;
   closedWeekKey?: string;
   rawTask?: any;
+  collaboratorName?: string;
+  a3ProjectId?: string;
+  actionId?: string | number;
+  actionIndex?: number;
+  progress?: number;
+  subtasks?: {
+    id: string | number;
+    title: string;
+    completed: boolean;
+    responsible?: string;
+    dueDate?: string;
+  }[];
 }
 
 export interface WeeklyStat {
@@ -139,12 +156,19 @@ export interface CollaboratorPerformance {
 }
 
 export const ResponsablesPage: React.FC = () => {
-  const { activeCompanyId } = useAuth();
+  const { activeCompanyId, user } = useAuth();
   const navigate = useNavigate();
 
   const [collaborators, setCollaborators] = useState<CollaboratorPerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCollaboratorName, setSelectedCollaboratorName] = useState<string | null>(null);
+
+  // Main View Mode: 'team' (Equipo & Ranking) or 'kanban' (Tablero Kanban Operativo)
+  const [mainViewMode, setMainViewMode] = useState<'team' | 'kanban'>('team');
+  // Individual Collaborator View Mode: 'kanban' (default!) or 'list'
+  const [collabDetailMode, setCollabDetailMode] = useState<'kanban' | 'list'>('kanban');
+  // Collaborator filter inside Global Kanban view
+  const [globalKanbanCollabFilter, setGlobalKanbanCollabFilter] = useState<string>('all');
 
   // Sorting: 'pending_desc' (quienes deben más tareas) is the default requested by user!
   const [sortBy, setSortBy] = useState<'pending_desc' | 'completed_desc' | 'compliance_asc' | 'name_asc'>('pending_desc');
@@ -167,8 +191,8 @@ export const ResponsablesPage: React.FC = () => {
   });
 
   // Load all team performance data
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const applyFilter = (query: any) => {
         if (activeCompanyId && activeCompanyId !== 'all' && activeCompanyId !== 'null') {
@@ -301,8 +325,8 @@ export const ResponsablesPage: React.FC = () => {
         const prof = resolveNameAndProfile(c.responsible || c.assigned_to);
         if (!prof) return;
 
-        const isClosed = ['cerrado', 'cerrada', 'resuelto', 'resuelta'].includes((c.status || '').toLowerCase());
-        const inProgress = ['en proceso', 'en progreso', 'atendiendo'].includes((c.status || '').toLowerCase());
+        const isClosed = ['cerrado', 'cerrada', 'resuelto', 'resuelta', 'completed'].includes((c.status || '').toLowerCase());
+        const inProgress = ['en proceso', 'en progreso', 'atendiendo', 'in_progress'].includes((c.status || '').toLowerCase());
         const taskStatus = isClosed ? 'completed' : inProgress ? 'in_progress' : 'pending';
 
         const createdWeek = getISOWeekInfo(c.created_at);
@@ -319,10 +343,11 @@ export const ResponsablesPage: React.FC = () => {
           createdAt: c.created_at,
           closeDate: closedDate,
           link: `/5s`,
-          extra: c.card_number ? `#${c.card_number}` : undefined,
+          extra: c.card_number ? `Tarjeta #${c.card_number}` : undefined,
           createdWeekKey: createdWeek.key,
           closedWeekKey: closedWeek?.key,
           rawTask: c,
+          collaboratorName: prof.name,
         };
 
         const collab = getOrInitCollaborator(prof.name, prof.email, prof.role, prof.id);
@@ -365,7 +390,7 @@ export const ResponsablesPage: React.FC = () => {
         const prof = resolveNameAndProfile(w.responsible);
         if (!prof) return;
 
-        const isClosed = ['done', 'completada', 'cerrada', 'implementada'].includes((w.status || '').toLowerCase());
+        const isClosed = ['done', 'completed', 'completada', 'cerrada', 'implementada'].includes((w.status || '').toLowerCase());
         const inProgress = ['in_progress', 'en proceso', 'ejecucion'].includes((w.status || '').toLowerCase());
         const taskStatus = isClosed ? 'completed' : inProgress ? 'in_progress' : 'pending';
 
@@ -381,11 +406,13 @@ export const ResponsablesPage: React.FC = () => {
           rawStatus: w.status || 'Propuesta',
           createdAt: w.created_at || w.date,
           closeDate: closedDate,
+          deadline: w.deadline || undefined,
           link: `/quick-wins`,
           extra: w.impact ? `Impacto ${w.impact}` : undefined,
           createdWeekKey: createdWeek.key,
           closedWeekKey: closedWeek?.key,
           rawTask: w,
+          collaboratorName: prof.name,
         };
 
         const collab = getOrInitCollaborator(prof.name, prof.email, prof.role, prof.id);
@@ -447,6 +474,7 @@ export const ResponsablesPage: React.FC = () => {
               createdWeekKey: createdWeek.key,
               closedWeekKey: closedWeek?.key,
               rawTask: a,
+              collaboratorName: prof.name,
             };
 
             const collab = getOrInitCollaborator(prof.name, prof.email, prof.role, prof.id);
@@ -482,33 +510,50 @@ export const ResponsablesPage: React.FC = () => {
           }
         }
 
-        // Subtasks in Action Plan
+        // Actions in 5W2H Action Plan (supports both act.who and act.responsible)
         if (Array.isArray(a.action_plan)) {
           a.action_plan.forEach((act: any, idx: number) => {
-            if (!act.responsible) return;
-            const actProf = resolveNameAndProfile(act.responsible);
+            const rawResp = act.who || act.responsible;
+            if (!rawResp) return;
+            const actProf = resolveNameAndProfile(rawResp);
             if (!actProf) return;
 
-            const isDone = ['done', 'completada', 'cerrada', 'ok'].includes((act.status || '').toLowerCase());
-            const taskStatus = isDone ? 'completed' : 'pending';
-            const actionDate = act.created_at || act.date || a.created_at || a.date;
+            const statusLower = (act.status || '').toLowerCase();
+            const isDone =
+              ['done', 'completed', 'completada', 'cerrada', 'ok'].includes(statusLower) ||
+              act.progress === 100;
+            const inProg =
+              !isDone &&
+              (['in_progress', 'en proceso', 'en progreso', 'ejecucion'].includes(statusLower) ||
+                (typeof act.progress === 'number' && act.progress > 0));
+            const taskStatus = isDone ? 'completed' : inProg ? 'in_progress' : 'pending';
+
+            const actionDate = act.created_at || act.when || act.date || a.created_at || a.date;
             const createdWeek = getISOWeekInfo(actionDate);
             const closedDate = act.completed_at || act.solutionDate || (isDone ? actionDate : undefined);
             const closedWeek = closedDate ? getISOWeekInfo(closedDate) : undefined;
 
             const item: TaskItem = {
-              id: `a3_act_${a.id}_${idx}`,
+              id: `a3_act_${a.id}_${act.id ?? idx}`,
               type: 'A3_ACTION',
-              title: act.activity || act.what || `Acción en ${a.title}`,
+              title: act.what || act.activity || `Acción en ${a.title}`,
+              area: act.where || undefined,
               status: taskStatus,
               rawStatus: act.status || 'Pendiente',
               createdAt: actionDate,
               closeDate: closedDate,
+              deadline: act.when || act.date || undefined,
               link: `/a3`,
               extra: `A3: ${a.title}`,
               createdWeekKey: createdWeek.key,
               closedWeekKey: closedWeek?.key,
               rawTask: act,
+              collaboratorName: actProf.name,
+              a3ProjectId: a.id,
+              actionId: act.id,
+              actionIndex: idx,
+              progress: typeof act.progress === 'number' ? act.progress : isDone ? 100 : inProg ? 50 : 0,
+              subtasks: Array.isArray(act.subtasks) ? act.subtasks : [],
             };
 
             const collab = getOrInitCollaborator(actProf.name, actProf.email, actProf.role, actProf.id);
@@ -518,7 +563,7 @@ export const ResponsablesPage: React.FC = () => {
 
             collab.rawTasks.a3Actions.push({
               id: `act_${a.id}_${idx}`,
-              activity: act.activity || act.what || 'Acción A3',
+              activity: act.what || act.activity || 'Acción A3',
               projectTitle: a.title,
               status: act.status,
               date: actionDate,
@@ -527,6 +572,9 @@ export const ResponsablesPage: React.FC = () => {
             if (isDone) {
               collab.totalCompleted++;
               collab.a3Count.completed++;
+            } else if (inProg) {
+              collab.totalInProgress++;
+              collab.a3Count.pending++;
             } else {
               collab.totalPending++;
               collab.a3Count.pending++;
@@ -582,6 +630,7 @@ export const ResponsablesPage: React.FC = () => {
           extra: `Puntaje: ${normalizedScore}%`,
           createdWeekKey: auditWeek.key,
           closedWeekKey: auditWeek.key,
+          collaboratorName: prof.name,
         };
 
         const collab = getOrInitCollaborator(prof.name, prof.email, prof.role, prof.id);
@@ -842,21 +891,206 @@ export const ResponsablesPage: React.FC = () => {
     }
   };
 
+  // Flattened list of all tasks across collaborators for Global Kanban
+  const allTasks = useMemo<TaskItem[]>(() => {
+    const list: TaskItem[] = [];
+    collaborators.forEach((c) => {
+      c.tasks.forEach((t) => {
+        list.push({ ...t, collaboratorName: t.collaboratorName || c.name });
+      });
+    });
+    return list;
+  }, [collaborators]);
+
+  // Bidirectional Supabase update when moving a card on the Kanban board
+  const handleUpdateTaskStatus = async (
+    task: TaskItem,
+    newStatus: 'pending' | 'in_progress' | 'completed'
+  ) => {
+    try {
+      if (task.type === '5S') {
+        const dbStatus =
+          newStatus === 'completed' ? 'Cerrado' : newStatus === 'in_progress' ? 'En Proceso' : 'Abierto';
+        const closeDate =
+          newStatus === 'completed' ? new Date().toISOString().split('T')[0] : null;
+        const { error } = await supabase
+          .from('five_s_cards')
+          .update({ status: dbStatus, close_date: closeDate })
+          .eq('id', task.id);
+        if (error) throw error;
+      } else if (task.type === 'QW') {
+        const dbStatus =
+          newStatus === 'completed' ? 'done' : newStatus === 'in_progress' ? 'in_progress' : 'idea';
+        const completedAt = newStatus === 'completed' ? new Date().toISOString() : null;
+        const { error } = await supabase
+          .from('quick_wins')
+          .update({ status: dbStatus, completed_at: completedAt })
+          .eq('id', task.id);
+        if (error) throw error;
+      } else if (task.type === 'A3') {
+        const dbStatus =
+          newStatus === 'completed' ? 'Cerrado' : newStatus === 'in_progress' ? 'En Proceso' : 'Nuevo';
+        const { error } = await supabase
+          .from('a3_projects')
+          .update({ status: dbStatus })
+          .eq('id', task.id);
+        if (error) throw error;
+      } else if (task.type === 'A3_ACTION' && task.a3ProjectId) {
+        const { data: a3Data, error: fetchErr } = await supabase
+          .from('a3_projects')
+          .select('action_plan')
+          .eq('id', task.a3ProjectId)
+          .single();
+        if (fetchErr) throw fetchErr;
+
+        const currentPlan = Array.isArray(a3Data?.action_plan) ? [...a3Data.action_plan] : [];
+        const updatedPlan = currentPlan.map((act: any, idx: number) => {
+          const matchById =
+            task.actionId !== undefined &&
+            act.id !== undefined &&
+            String(act.id) === String(task.actionId);
+          const matchByIdx = task.actionIndex !== undefined && idx === task.actionIndex;
+          if (!matchById && !matchByIdx) return act;
+
+          const nextProgress =
+            newStatus === 'completed'
+              ? 100
+              : newStatus === 'in_progress'
+              ? act.progress > 0 && act.progress < 100
+                ? act.progress
+                : 50
+              : 0;
+
+          const nextSubtasks = Array.isArray(act.subtasks)
+            ? act.subtasks.map((s: any) =>
+                newStatus === 'completed'
+                  ? { ...s, completed: true }
+                  : newStatus === 'pending'
+                  ? { ...s, completed: false }
+                  : s
+              )
+            : act.subtasks;
+
+          return {
+            ...act,
+            status: newStatus,
+            progress: nextProgress,
+            subtasks: nextSubtasks,
+          };
+        });
+
+        const { error: updErr } = await supabase
+          .from('a3_projects')
+          .update({ action_plan: updatedPlan })
+          .eq('id', task.a3ProjectId);
+        if (updErr) throw updErr;
+      }
+
+      const statusLabel =
+        newStatus === 'completed' ? 'Realizado' : newStatus === 'in_progress' ? 'En Proceso' : 'Por Hacer';
+      toast.success(`Tarea movida a "${statusLabel}"`);
+      await loadData(true);
+    } catch (err: any) {
+      console.error('Error updating task status from Kanban:', err);
+      toast.error(`No se pudo actualizar el estado: ${err.message || 'Error de red'}`);
+    }
+  };
+
+  // Toggle an A3 5W2H subtask directly from the Kanban card
+  const handleToggleSubtask = async (task: TaskItem, subtaskId: string | number) => {
+    if (task.type !== 'A3_ACTION' || !task.a3ProjectId) return;
+    try {
+      const { data: a3Data, error: fetchErr } = await supabase
+        .from('a3_projects')
+        .select('action_plan')
+        .eq('id', task.a3ProjectId)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const currentPlan = Array.isArray(a3Data?.action_plan) ? [...a3Data.action_plan] : [];
+      const updatedPlan = currentPlan.map((act: any, idx: number) => {
+        const matchById =
+          task.actionId !== undefined &&
+          act.id !== undefined &&
+          String(act.id) === String(task.actionId);
+        const matchByIdx = task.actionIndex !== undefined && idx === task.actionIndex;
+        if (!matchById && !matchByIdx) return act;
+
+        const nextSubtasks = (act.subtasks || []).map((s: any) =>
+          String(s.id) === String(subtaskId) ? { ...s, completed: !s.completed } : s
+        );
+        const total = nextSubtasks.length;
+        const doneCount = nextSubtasks.filter((s: any) => s.completed).length;
+        const nextProgress = total > 0 ? Math.round((doneCount / total) * 100) : act.progress || 0;
+        const nextStatus =
+          nextProgress === 100 ? 'completed' : nextProgress > 0 ? 'in_progress' : 'pending';
+
+        return {
+          ...act,
+          subtasks: nextSubtasks,
+          progress: nextProgress,
+          status: nextStatus,
+        };
+      });
+
+      const { error: updErr } = await supabase
+        .from('a3_projects')
+        .update({ action_plan: updatedPlan })
+        .eq('id', task.a3ProjectId);
+      if (updErr) throw updErr;
+
+      toast.success('Subtarea actualizada');
+      await loadData(true);
+    } catch (err: any) {
+      console.error('Error toggling subtask from Kanban:', err);
+      toast.error('Error al actualizar la subtarea');
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12 font-sans">
       {/* High-Contrast Light Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2.5">
             <Users className="text-cyan-600" size={28} />
-            <span>Gestión de Responsables & Rendimiento</span>
+            <span>Gestión de Responsables & Tablero Kanban</span>
           </h1>
           <p className="text-sm text-slate-600 mt-1 font-medium">
-            Seguimiento semana a semana de la carga de trabajo, velocidad de resolución y efectividad operacional.
+            Seguimiento diario (Por Hacer • En Proceso • Realizado), carga de trabajo y efectividad operacional.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {!selectedCollaborator && (
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setMainViewMode('team')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  mainViewMode === 'team'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutGrid size={14} className={mainViewMode === 'team' ? 'text-cyan-600' : ''} />
+                <span>Equipo & Ranking</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMainViewMode('kanban')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  mainViewMode === 'kanban'
+                    ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Kanban size={14} />
+                <span>Tablero Kanban Operativo</span>
+              </button>
+            </div>
+          )}
+
           {selectedCollaborator && (
             <Button
               variant="secondary"
@@ -871,7 +1105,7 @@ export const ResponsablesPage: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
-            onClick={loadData}
+            onClick={() => loadData(false)}
             isLoading={loading}
             leftIcon={<RefreshCw size={14} />}
           >
@@ -1146,129 +1380,188 @@ export const ResponsablesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Interactive Task List for Collaborator (Light Theme) */}
+          {/* Interactive Task Board / List for Collaborator (Light Theme) */}
           <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Detalle de Compromisos Operacionales</h3>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Kanban size={18} className="text-cyan-600" />
+                  <span>Tablero de Compromisos Operacionales ({selectedCollaborator.name})</span>
+                </h3>
                 <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                  {selectedTasksFiltered.length} tareas encontradas para este filtro
+                  Gestiona qué tiene Por Hacer ({selectedCollaborator.totalPending}), En Proceso ({selectedCollaborator.totalInProgress}) y Realizado ({selectedCollaborator.totalCompleted})
                 </p>
               </div>
 
-              {/* Status Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                <button
-                  type="button"
-                  onClick={() => setTaskStatusFilter('all')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    taskStatusFilter === 'all'
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Todas ({selectedCollaborator.tasks.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTaskStatusFilter('pending')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    taskStatusFilter === 'pending'
-                      ? 'bg-rose-600 text-white shadow-sm'
-                      : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
-                  }`}
-                >
-                  Pendientes ({selectedCollaborator.totalPending})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTaskStatusFilter('in_progress')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    taskStatusFilter === 'in_progress'
-                      ? 'bg-cyan-600 text-white shadow-sm'
-                      : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200'
-                  }`}
-                >
-                  En Proceso ({selectedCollaborator.totalInProgress})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTaskStatusFilter('completed')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    taskStatusFilter === 'completed'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
-                  }`}
-                >
-                  Completadas ({selectedCollaborator.totalCompleted})
-                </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* View Switcher: Kanban vs List */}
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setCollabDetailMode('kanban')}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                      collabDetailMode === 'kanban'
+                        ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Kanban size={13} />
+                    <span>Tablero Kanban</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCollabDetailMode('list')}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                      collabDetailMode === 'list'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <List size={13} />
+                    <span>Vista Lista</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Task rows */}
-            {selectedTasksFiltered.length > 0 ? (
-              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-                {selectedTasksFiltered.map((task, idx) => {
-                  const typeBadgeClass =
-                    task.type === '5S'
-                      ? 'bg-rose-50 text-rose-700 border-rose-200'
-                      : task.type === 'QW'
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : task.type === 'AUDIT'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-indigo-50 text-indigo-700 border-indigo-200';
+            {collabDetailMode === 'kanban' ? (
+              <ResponsablesKanbanBoard
+                tasks={selectedCollaborator.tasks}
+                isCompact={true}
+                onUpdateTaskStatus={handleUpdateTaskStatus}
+                onToggleSubtask={handleToggleSubtask}
+                onNavigateToTask={(link) => navigate(link)}
+              />
+            ) : (
+              <>
+                {/* Status Tabs for List Mode */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setTaskStatusFilter('all')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      taskStatusFilter === 'all'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Todas ({selectedCollaborator.tasks.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTaskStatusFilter('pending')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      taskStatusFilter === 'pending'
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                    }`}
+                  >
+                    Por Hacer ({selectedCollaborator.totalPending})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTaskStatusFilter('in_progress')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      taskStatusFilter === 'in_progress'
+                        ? 'bg-cyan-600 text-white shadow-sm'
+                        : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200'
+                    }`}
+                  >
+                    En Proceso ({selectedCollaborator.totalInProgress})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTaskStatusFilter('completed')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      taskStatusFilter === 'completed'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                    }`}
+                  >
+                    Realizadas ({selectedCollaborator.totalCompleted})
+                  </button>
+                </div>
 
-                  const statusBadgeClass =
-                    task.status === 'completed'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : task.status === 'in_progress'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-rose-100 text-rose-800';
+                {/* Task rows */}
+                {selectedTasksFiltered.length > 0 ? (
+                  <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                    {selectedTasksFiltered.map((task, idx) => {
+                      const typeBadgeClass =
+                        task.type === '5S'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : task.type === 'QW'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : task.type === 'AUDIT'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-indigo-50 text-indigo-700 border-indigo-200';
 
-                  const dateStr = task.createdAt ? new Date(task.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : 'S/F';
+                      const statusBadgeClass =
+                        task.status === 'completed'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : task.status === 'in_progress'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-rose-100 text-rose-800';
 
-                  return (
-                    <div
-                      key={`${task.id}_${idx}`}
-                      onClick={() => navigate(task.link)}
-                      className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-cyan-500 hover:bg-white cursor-pointer transition-all flex items-center justify-between gap-4 group shadow-sm hover:shadow"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${typeBadgeClass}`}>
-                          {task.type === '5S' ? '5S' : task.type === 'QW' ? 'QW' : task.type === 'AUDIT' ? 'Auditoría' : 'A3'}
-                        </span>
+                      const dateStr = task.createdAt ? new Date(task.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : 'S/F';
 
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-800 group-hover:text-cyan-700 transition-colors truncate">
-                            {task.title}
-                          </p>
-                          <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5 font-medium">
-                            {task.area && <span>Área: {task.area}</span>}
-                            {task.extra && <span>• {task.extra}</span>}
-                            <span>• Sem. {getISOWeekInfo(task.createdAt).week} ({dateStr})</span>
+                      return (
+                        <div
+                          key={`${task.id}_${idx}`}
+                          onClick={() => navigate(task.link)}
+                          className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-cyan-500 hover:bg-white cursor-pointer transition-all flex items-center justify-between gap-4 group shadow-sm hover:shadow"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${typeBadgeClass}`}>
+                              {task.type === '5S' ? '5S' : task.type === 'QW' ? 'QW' : task.type === 'AUDIT' ? 'Auditoría' : 'A3'}
+                            </span>
+
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 group-hover:text-cyan-700 transition-colors truncate">
+                                {task.title}
+                              </p>
+                              <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5 font-medium">
+                                {task.area && <span>Área: {task.area}</span>}
+                                {task.extra && <span>• {task.extra}</span>}
+                                <span>• Sem. {getISOWeekInfo(task.createdAt).week} ({dateStr})</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${statusBadgeClass}`}>
+                              {task.status === 'completed' ? 'Realizado' : task.status === 'in_progress' ? 'En Proceso' : 'Por Hacer'}
+                            </span>
+                            <ChevronRight size={15} className="text-slate-400 group-hover:text-cyan-600 transition-colors" />
                           </div>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-2.5 shrink-0">
-                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${statusBadgeClass}`}>
-                          {task.status === 'completed' ? 'Cerrada' : task.status === 'in_progress' ? 'En Proceso' : 'Pendiente'}
-                        </span>
-                        <ChevronRight size={15} className="text-slate-400 group-hover:text-cyan-600 transition-colors" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-12 text-center text-slate-500 text-xs font-medium">
-                No hay tareas que coincidan con el filtro seleccionado.
-              </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-slate-500 text-xs font-medium">
+                    No hay tareas que coincidan con el filtro seleccionado.
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
+      ) : mainViewMode === 'kanban' ? (
+        /* VIEW 2A: GLOBAL OPERATIONAL KANBAN BOARD */
+        <div className="animate-fadeIn">
+          <ResponsablesKanbanBoard
+            tasks={allTasks}
+            collaborators={collaborators}
+            selectedCollaboratorFilter={globalKanbanCollabFilter}
+            onSelectCollaboratorFilter={setGlobalKanbanCollabFilter}
+            currentUserName={user?.name}
+            onUpdateTaskStatus={handleUpdateTaskStatus}
+            onToggleSubtask={handleToggleSubtask}
+            onNavigateToTask={(link) => navigate(link)}
+          />
+        </div>
       ) : (
-        /* VIEW 2: TEAM OVERVIEW & WEEKLY PROGRESS */
+        /* VIEW 2B: TEAM OVERVIEW & WEEKLY PROGRESS */
         <div className="space-y-6">
           {/* Team Weekly Velocity Chart Card (Light Theme) */}
           <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
@@ -1529,10 +1822,14 @@ export const ResponsablesPage: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => setSelectedCollaboratorName(person.name)}
-                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 font-bold text-[11px] transition-colors flex items-center gap-1"
+                          onClick={() => {
+                            setCollabDetailMode('kanban');
+                            setSelectedCollaboratorName(person.name);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-600 text-cyan-800 hover:text-white border border-cyan-200 font-extrabold text-[11px] transition-colors flex items-center gap-1"
                         >
-                          <span>Detalle</span>
+                          <Kanban size={12} />
+                          <span>Ver Kanban</span>
                           <ChevronRight size={12} />
                         </button>
                       </div>

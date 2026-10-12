@@ -267,8 +267,8 @@ export function getEffectiveApiKey(passedKey?: string): string {
   if (passedKey && passedKey.trim() && !KNOWN_EXPIRED_KEYS.has(passedKey.trim())) {
     return passedKey.trim();
   }
-  if (OPENROUTER_FALLBACK_KEY) {
-    return OPENROUTER_FALLBACK_KEY;
+  if (cachedOpenRouterKey) {
+    return cachedOpenRouterKey;
   }
   return import.meta.env.VITE_GEMINI_API_KEY || '';
 }
@@ -1658,10 +1658,10 @@ REGLAS OBLIGATORIAS:
       if (!/<[a-z][\s\S]*>/i.test(cleaned)) {
         const paragraphs = cleaned
           .split(/\n\s*\n/)
-          .map((p) => p.trim())
+          .map((p: string) => p.trim())
           .filter(Boolean);
         if (paragraphs.length > 1) {
-          cleaned = paragraphs.map((p) => `<p>${p}</p>`).join('');
+          cleaned = paragraphs.map((p: string) => `<p>${p}</p>`).join('');
         }
       }
     }
