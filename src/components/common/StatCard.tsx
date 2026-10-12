@@ -38,21 +38,21 @@ export const StatCard: React.FC<StatCardProps> = ({
       : accentColor === 'emerald'
       ? 'green'
       : accentColor === 'amber'
-      ? 'yellow'
+      ? 'orange'
       : accentColor === 'rose'
       ? 'red'
       : accentColor === 'indigo'
       ? 'indigo'
       : 'blue');
-  // Solid Colors Variants (High Impact)
+  // Solid Colors Variants (High Impact & High Contrast)
   const solidVariants: Record<StatCardVariant, string> = {
-    blue: 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-blue-500/30',
-    green: 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30',
-    orange: 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-amber-500/30',
-    red: 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-red-500/30',
-    indigo: 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-indigo-500/30',
-    purple: 'bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-purple-500/30',
-    yellow: 'bg-gradient-to-br from-yellow-500 to-yellow-600 text-white shadow-yellow-500/30',
+    blue: 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-600/25',
+    green: 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-emerald-600/25',
+    orange: 'bg-gradient-to-br from-amber-600 to-orange-600 text-white shadow-amber-600/25',
+    red: 'bg-gradient-to-br from-rose-600 to-red-700 text-white shadow-rose-600/25',
+    indigo: 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-indigo-600/25',
+    purple: 'bg-gradient-to-br from-purple-600 to-purple-700 text-white shadow-purple-600/25',
+    yellow: 'bg-gradient-to-br from-amber-600 to-orange-600 text-white shadow-amber-600/25',
   };
 
   // Outlined/Light Variants (Subtle)

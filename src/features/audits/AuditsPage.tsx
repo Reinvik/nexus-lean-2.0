@@ -351,25 +351,25 @@ export const AuditsPage: React.FC = () => {
           <AuditRadarChart scores={activeRadarScores} />
 
           <div className="grid grid-cols-5 gap-2 pt-4 border-t border-slate-100 text-center">
-            <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
-              <span className="text-[11px] text-slate-500 block font-semibold">1S Seiri</span>
-              <span className="text-xs font-extrabold text-cyan-600">{activeRadarScores.s1}%</span>
+            <div className="bg-cyan-50/80 border border-cyan-200 rounded-xl p-2">
+              <span className="text-[11px] text-slate-700 block font-bold">1S Seiri</span>
+              <span className="text-sm font-black text-cyan-900">{activeRadarScores.s1}%</span>
             </div>
-            <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
-              <span className="text-[11px] text-slate-500 block font-semibold">2S Seiton</span>
-              <span className="text-xs font-extrabold text-indigo-600">{activeRadarScores.s2}%</span>
+            <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-2">
+              <span className="text-[11px] text-slate-700 block font-bold">2S Seiton</span>
+              <span className="text-sm font-black text-indigo-900">{activeRadarScores.s2}%</span>
             </div>
-            <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
-              <span className="text-[11px] text-slate-500 block font-semibold">3S Seiso</span>
-              <span className="text-xs font-extrabold text-emerald-600">{activeRadarScores.s3}%</span>
+            <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2">
+              <span className="text-[11px] text-slate-700 block font-bold">3S Seiso</span>
+              <span className="text-sm font-black text-emerald-900">{activeRadarScores.s3}%</span>
             </div>
-            <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
-              <span className="text-[11px] text-slate-500 block font-semibold">4S Seiketsu</span>
-              <span className="text-xs font-extrabold text-amber-600">{activeRadarScores.s4}%</span>
+            <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-2">
+              <span className="text-[11px] text-slate-700 block font-bold">4S Seiketsu</span>
+              <span className="text-sm font-black text-amber-900">{activeRadarScores.s4}%</span>
             </div>
-            <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2">
-              <span className="text-[11px] text-slate-500 block font-semibold">5S Shitsuke</span>
-              <span className="text-xs font-extrabold text-rose-600">{activeRadarScores.s5}%</span>
+            <div className="bg-rose-50/80 border border-rose-200 rounded-xl p-2">
+              <span className="text-[11px] text-slate-700 block font-bold">5S Shitsuke</span>
+              <span className="text-sm font-black text-rose-900">{activeRadarScores.s5}%</span>
             </div>
           </div>
         </div>
@@ -381,13 +381,13 @@ export const AuditsPage: React.FC = () => {
               <h3 className="text-base font-bold text-slate-900 font-sans">
                 Historial de Auditorías
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium">
+              <p className="text-xs text-slate-600 mt-0.5 font-medium">
                 {selectedAudit
                   ? `Mostrando en radar: "${selectedAudit.area || selectedAudit.title}". Haz clic para desmarcar.`
                   : 'Últimas revisiones ejecutadas en planta • Haz clic en una auditoría para ver su radar'}
               </p>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/60 font-mono w-fit">
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-900 border border-cyan-300 font-mono w-fit">
               {filteredAudits.length} de {audits.length} {audits.length === 1 ? 'registro' : 'registros'}
             </span>
           </div>
@@ -395,23 +395,23 @@ export const AuditsPage: React.FC = () => {
           {/* Search & Filter Toolbar */}
           <div className="flex flex-col sm:flex-row items-center gap-2.5">
             <div className="relative flex-1 w-full">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por área o auditor..."
-                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-cyan-500 focus:bg-white transition-colors"
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-cyan-600 focus:bg-white transition-colors"
               />
             </div>
             <div className="flex items-center gap-1.5 w-full sm:w-auto shrink-0">
               <button
                 type="button"
                 onClick={() => setScoreFilter('all')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
                   scoreFilter === 'all'
                     ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    : 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200'
                 }`}
               >
                 Todos
@@ -419,10 +419,10 @@ export const AuditsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setScoreFilter('high')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
                   scoreFilter === 'high'
-                    ? 'bg-emerald-600 text-white border-emerald-600'
-                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                    ? 'bg-emerald-700 text-white border-emerald-700'
+                    : 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
                 }`}
               >
                 ≥ 80%
@@ -430,10 +430,10 @@ export const AuditsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setScoreFilter('mid')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
                   scoreFilter === 'mid'
                     ? 'bg-amber-600 text-white border-amber-600'
-                    : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                    : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
                 }`}
               >
                 60-79%
@@ -441,10 +441,10 @@ export const AuditsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setScoreFilter('low')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
                   scoreFilter === 'low'
-                    ? 'bg-rose-600 text-white border-rose-600'
-                    : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                    ? 'bg-rose-700 text-white border-rose-700'
+                    : 'bg-rose-100 text-rose-900 border-rose-300 hover:bg-rose-200'
                 }`}
               >
                 &lt; 60%
@@ -479,23 +479,23 @@ export const AuditsPage: React.FC = () => {
                     }}
                     className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none group ${
                       isSelected
-                        ? 'bg-cyan-50/70 border-cyan-500 ring-2 ring-cyan-500/25 shadow-sm'
-                        : 'bg-slate-50/80 border-slate-200/80 hover:border-cyan-400 hover:bg-white hover:shadow-xs'
+                        ? 'bg-cyan-50/90 border-cyan-600 ring-2 ring-cyan-500/30 shadow-sm'
+                        : 'bg-slate-50 border-slate-200 hover:border-cyan-500 hover:bg-white hover:shadow-xs'
                     }`}
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div
-                        className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 border ${
+                        className={`w-14 h-12 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 border shadow-2xs ${
                           normScore >= 80
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
                             : normScore >= 60
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                            ? 'bg-amber-100 text-amber-950 border-amber-300'
+                            : 'bg-rose-100 text-rose-950 border-rose-300'
                         }`}
                       >
-                        <span className="text-xs font-black">{normScore}%</span>
+                        <span className="text-sm font-black leading-tight">{normScore}%</span>
                         {isOriginal5Scale && (
-                          <span className="text-[9px] opacity-75 font-mono">
+                          <span className="text-[10px] font-bold text-slate-800 font-mono leading-tight">
                             {Number(audit.total_score).toFixed(1)}/5
                           </span>
                         )}
@@ -503,22 +503,22 @@ export const AuditsPage: React.FC = () => {
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-cyan-700 transition-colors">
+                          <p className="text-sm font-bold text-slate-900 truncate group-hover:text-cyan-800 transition-colors">
                             {audit.area || audit.title || 'Área General'}
                           </p>
                           {isSelected && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-cyan-600 text-white shrink-0">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-cyan-700 text-white shrink-0">
                               <Eye size={10} /> En Radar
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
-                          <span className="flex items-center gap-1 truncate font-medium">
-                            <User size={12} className="text-slate-400" />
+                        <div className="flex items-center gap-3 text-xs text-slate-700 mt-0.5">
+                          <span className="flex items-center gap-1 truncate font-semibold">
+                            <User size={12} className="text-slate-600" />
                             <span>{audit.auditor || 'Sin auditor'}</span>
                           </span>
-                          <span className="flex items-center gap-1 font-medium">
-                            <Calendar size={12} className="text-slate-400" />
+                          <span className="flex items-center gap-1 font-semibold">
+                            <Calendar size={12} className="text-slate-600" />
                             <span>{formatDate(audit.audit_date)}</span>
                           </span>
                         </div>
@@ -526,7 +526,7 @@ export const AuditsPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant={scoreVariant}>
+                      <Badge variant={scoreVariant} size="md">
                         {normScore >= 80 ? 'Excelente' : normScore >= 60 ? 'Regular' : 'Crítico'}
                       </Badge>
                       <button
@@ -534,7 +534,7 @@ export const AuditsPage: React.FC = () => {
                           e.stopPropagation();
                           handleDelete(audit.id);
                         }}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 transition-colors"
                         title="Eliminar registro"
                       >
                         <Trash2 size={15} />

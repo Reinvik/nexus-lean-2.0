@@ -36,30 +36,32 @@ export const AuditRadarChart: React.FC<AuditRadarChartProps> = ({
     <div className="w-full h-72">
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data}>
-          <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+          <PolarGrid stroke="#cbd5e1" strokeDasharray="3 3" />
           <PolarAngleAxis
             dataKey="subject"
-            tick={{ fill: '#334155', fontSize: 11, fontWeight: 600 }}
+            tick={{ fill: '#0f172a', fontSize: 12, fontWeight: 700 }}
           />
           <PolarRadiusAxis
             angle={90}
             domain={[0, 100]}
-            stroke="#cbd5e1"
-            tick={{ fill: '#64748b', fontSize: 10 }}
+            stroke="#94a3b8"
+            tick={{ fill: '#0f172a', fontSize: 11, fontWeight: 800 }}
           />
           <Radar
             name="Puntaje Actual (%)"
             dataKey="score"
-            stroke="#0891b2"
+            stroke="#0284c7"
+            strokeWidth={2.5}
             fill="#06b6d4"
-            fillOpacity={0.35}
+            fillOpacity={0.3}
           />
           <Radar
             name="Meta (100%)"
             dataKey="target"
-            stroke="#6366f1"
+            stroke="#4f46e5"
+            strokeWidth={1.5}
             fill="#6366f1"
-            fillOpacity={0.06}
+            fillOpacity={0.05}
             strokeDasharray="4 4"
           />
           <Tooltip

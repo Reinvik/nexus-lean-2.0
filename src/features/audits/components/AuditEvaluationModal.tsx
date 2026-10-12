@@ -218,26 +218,26 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
 
                   {/* Score buttons: 0, 1, 2, 3, 4 */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] text-slate-400 mr-1">Calificación:</span>
+                    <span className="text-xs font-semibold text-slate-300 mr-1">Calificación:</span>
                     {[0, 1, 2, 3, 4].map((pts) => (
                       <button
                         type="button"
                         key={pts}
                         onClick={() => handleScoreChange(qIdx, pts)}
-                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all border ${
+                        className={`w-10 h-10 rounded-xl text-sm font-black transition-all border ${
                           currentAnswer.score === pts
                             ? pts === 4
-                              ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]'
+                              ? 'bg-emerald-600 text-white border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
                               : pts >= 2
-                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
-                              : 'bg-rose-500 text-white border-rose-400'
-                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                              ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.5)]'
+                              : 'bg-rose-600 text-white border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
+                            : 'bg-slate-800 text-white border-slate-600 hover:bg-slate-700'
                         }`}
                       >
                         {pts}
                       </button>
                     ))}
-                    <span className="text-[10px] text-slate-400 ml-2">
+                    <span className="text-xs font-semibold text-slate-300 ml-2">
                       {currentAnswer.score === 4
                         ? 'Excelente / Cumple estándar'
                         : currentAnswer.score === 0
