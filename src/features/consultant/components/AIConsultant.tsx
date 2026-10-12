@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Brain,
   RefreshCw,
@@ -23,12 +23,20 @@ import {
   Minimize2,
   Calendar,
   History,
+  Database,
+  ShieldCheck,
+  Zap,
+  Footprints,
+  Activity,
+  ClipboardList,
 } from 'lucide-react';
 import {
   prepareCompanyData,
   generateAIInsight,
   sendChatMessage,
+  getEffectiveApiKey,
 } from '../../../services/geminiService';
+import { supabase } from '../../../lib/supabase';
 import {
   BarChart,
   Bar,
@@ -47,9 +55,13 @@ export interface AIConsultantProps {
     vsms?: any[];
     a3?: any[];
     auditLogs?: any[];
+    gembaWalks?: any[];
+    gembaFindings?: any[];
+    profiles?: any[];
     [key: string]: any;
   };
   companyName: string;
+  companyId?: string | null;
   apiKey?: string;
   fullScreen?: boolean;
   isSyncing?: boolean;
@@ -59,6 +71,7 @@ export interface AIConsultantProps {
 export const AIConsultant: React.FC<AIConsultantProps> = ({
   data,
   companyName,
+  companyId = null,
   apiKey,
   fullScreen = false,
   isSyncing = false,
@@ -66,9 +79,11 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
 }) => {
   const [insight, setInsight] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [dbLoading, setDbLoading] = useState(true);
+  const [dbSavedAt, setDbSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
-  const [showCoaching, setShowCoaching] = useState(false);
+  const [showCoaching, setShowCoaching] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
 
   // Chat State
@@ -77,15 +92,38 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
   const [inputMessage, setInputMessage] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const autoTriggeredRef = useRef<string | null>(null);
 
-  // API Key Management
+  // Scope único para guardar SOLO LA ÚLTIMA actualización en la base de datos por empresa/vista
+  const scopeKey = useMemo(() => {
+    return companyId && companyId !== 'all' ? `company_${companyId}` : 'global_all';
+  }, [companyId]);
+
+  // API Key Management (con fallback transparente a OpenRouter / Motor Lean)
   const [customApiKey, setCustomApiKey] = useState(
     localStorage.getItem('gemini_api_key') || ''
   );
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [tempKey, setTempKey] = useState('');
 
-  const effectiveApiKey = customApiKey || apiKey || '';
+  const effectiveApiKey = getEffectiveApiKey(customApiKey || apiKey);
+
+  // Datos enriquecidos de los 6 módulos en tiempo real
+  const preparedData = useMemo(() => {
+    return prepareCompanyData(data, companyName);
+  }, [data, companyName]);
+
+  const totalRecordsCount = useMemo(() => {
+    return (
+      (data?.fiveS?.length || 0) +
+      (data?.quickWins?.length || 0) +
+      (data?.a3?.length || 0) +
+      (data?.vsms?.length || 0) +
+      (data?.auditLogs?.length || 0) +
+      (data?.gembaWalks?.length || 0) +
+      (data?.gembaFindings?.length || 0)
+    );
+  }, [data]);
 
   const saveApiKey = (key: string) => {
     const trimmed = key.trim();
@@ -97,6 +135,128 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
       setError(null);
     }
   };
+
+  /**
+   * Guarda ÚNICAMENTE la última actualización en Supabase (sobrescribiendo la anterior)
+   */
+  const persistSingleLatestToDatabase = useCallback(
+    async (
+      latestInsight: any,
+      latestChat: Array<{ role: string; content: string }>
+    ) => {
+      const nowIso = new Date().toISOString();
+      try {
+        localStorage.setItem(
+          `ai_insight_${scopeKey}`,
+          JSON.stringify({
+            insight: latestInsight,
+            chatHistory: latestChat.slice(-12),
+            updatedAt: nowIso,
+          })
+        );
+      } catch {
+        // ignore localStorage quota errors
+      }
+
+      try {
+        const { error: upsertErr } = await supabase
+          .from('lean_ai_insights')
+          .upsert(
+            {
+              scope_key: scopeKey,
+              company_id: companyId && companyId !== 'all' ? companyId : null,
+              company_name: companyName || 'Todas las Empresas',
+              insight_data: latestInsight,
+              chat_history: latestChat.slice(-12),
+              updated_at: nowIso,
+            },
+            { onConflict: 'scope_key' }
+          );
+
+        if (!upsertErr) {
+          setDbSavedAt(nowIso);
+        } else {
+          console.warn('[AIConsultant] Error guardando en BD:', upsertErr.message);
+        }
+      } catch (err) {
+        console.warn('[AIConsultant] No se pudo sincronizar con lean_ai_insights:', err);
+      }
+    },
+    [scopeKey, companyId, companyName]
+  );
+
+  /**
+   * Carga la ÚLTIMA actualización desde la base de datos (Supabase) al abrir el módulo
+   */
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadLatestFromDatabase() {
+      setDbLoading(true);
+      setError(null);
+
+      try {
+        const { data: row, error: selectErr } = await supabase
+          .from('lean_ai_insights')
+          .select('insight_data, chat_history, updated_at')
+          .eq('scope_key', scopeKey)
+          .maybeSingle();
+
+        if (!isMounted) return;
+
+        if (!selectErr && row && row.insight_data?.resumenEjecutivo) {
+          setInsight(row.insight_data);
+          setDbSavedAt(row.updated_at || row.insight_data.generatedAt || null);
+          if (Array.isArray(row.chat_history) && row.chat_history.length > 0) {
+            setChatHistory(row.chat_history);
+          }
+          setDbLoading(false);
+          return;
+        }
+
+        // Fallback: revisar caché local y migrarla a la base de datos si existe
+        const localRaw =
+          localStorage.getItem(`ai_insight_${scopeKey}`) ||
+          localStorage.getItem(`ai_insight_${companyName || 'default'}`);
+        if (localRaw) {
+          const parsed = JSON.parse(localRaw);
+          const candidateInsight = parsed?.insight || parsed;
+          const candidateChat = Array.isArray(parsed?.chatHistory)
+            ? parsed.chatHistory
+            : [];
+          if (candidateInsight?.resumenEjecutivo?.trim()) {
+            setInsight(candidateInsight);
+            setDbSavedAt(
+              parsed?.updatedAt || candidateInsight.generatedAt || new Date().toISOString()
+            );
+            if (candidateChat.length > 0) {
+              setChatHistory(candidateChat);
+            }
+            // Persistir en la tabla de BD para que quede como única última actualización
+            persistSingleLatestToDatabase(candidateInsight, candidateChat);
+            setDbLoading(false);
+            return;
+          }
+        }
+
+        // Si no hay ningún registro previo para este scope
+        setInsight(null);
+        setDbSavedAt(null);
+      } catch (err) {
+        console.warn('[AIConsultant] Error leyendo última actualización de BD:', err);
+      } finally {
+        if (isMounted) {
+          setDbLoading(false);
+        }
+      }
+    }
+
+    loadLatestFromDatabase();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [scopeKey, companyName, persistSingleLatestToDatabase]);
 
   // Historical data calculation for the last 12 weeks
   const processedHistory = useMemo(() => {
@@ -129,9 +289,11 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
 
       const fiveSClosed = (data.fiveS || []).filter((item: any) => {
         const dCreated = new Date(item.createdAt || item.date || item.created_at);
-        const dClosed = item.solutionDate
+        const dClosed = item.close_date
+          ? new Date(item.close_date)
+          : item.solutionDate
           ? new Date(item.solutionDate)
-          : item.status === 'Cerrado'
+          : item.status?.toLowerCase() === 'cerrado'
           ? dCreated
           : null;
         return dClosed && dClosed <= weekEnd;
@@ -158,21 +320,6 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
     return weeks.slice(-12);
   }, [data]);
 
-  // Load cached insight on mount
-  useEffect(() => {
-    const cached = localStorage.getItem(`ai_insight_${companyName || 'default'}`);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed?.resumenEjecutivo?.trim()) {
-          setInsight(parsed);
-        }
-      } catch (e) {
-        console.error('Error parsing cached insight:', e);
-      }
-    }
-  }, [companyName]);
-
   // Auto-scroll chat
   useEffect(() => {
     if (activeTab === 'chat' && chatEndRef.current) {
@@ -180,60 +327,93 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
     }
   }, [chatHistory, activeTab]);
 
-  const generateInsight = async () => {
-    if (!effectiveApiKey) {
-      setShowKeyInput(true);
-      return;
-    }
-
+  const generateInsight = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const preparedData = prepareCompanyData(data, companyName);
+      const currentPrepared = prepareCompanyData(data, companyName);
       const newInsight = await generateAIInsight(
-        preparedData,
+        currentPrepared,
         companyName,
         effectiveApiKey
       );
 
       setInsight(newInsight);
 
-      try {
-        localStorage.setItem(
-          `ai_insight_${companyName || 'default'}`,
-          JSON.stringify(newInsight)
-        );
-      } catch (e) {
-        console.warn('Could not save insight to localStorage:', e);
-      }
+      const open5S =
+        (currentPrepared?.fiveS?.pending || 0) +
+        (currentPrepared?.fiveS?.inProcess || 0);
+      const topArea = currentPrepared?.fiveS?.topCriticalAreas?.[0];
 
-      if (chatHistory.length === 0) {
-        setChatHistory([
-          {
-            role: 'model',
-            content: `Hola, he analizado los datos de ${
-              companyName || 'la empresa'
-            }. Veo ${preparedData?.a3?.total || 0} proyectos A3 y ${
-              (preparedData?.fiveS?.pending || 0) +
-              (preparedData?.fiveS?.inProcess || 0)
-            } tarjetas 5S pendientes. ¿En qué aspecto deseas que profundicemos?`,
-          },
-        ]);
-      }
+      const initialGreeting =
+        chatHistory.length > 0
+          ? chatHistory
+          : [
+              {
+                role: 'model',
+                content: `Hola, he actualizado el diagnóstico integral 360° de **${
+                  companyName || 'la planta'
+                }** analizando **${totalRecordsCount} registros** en los 6 módulos:\n• **5S:** ${
+                  currentPrepared?.fiveS?.rate || 0
+                }% de cierre (${open5S} abiertas${
+                  topArea ? `, foco en ${topArea.area}` : ''
+                })\n• **Auditorías 5S:** ${
+                  currentPrepared?.auditStats?.avgScore || 0
+                }% promedio en ${currentPrepared?.auditStats?.totalAudits || 0} auditorías\n• **Proyectos A3:** ${
+                  currentPrepared?.a3?.total || 0
+                } proyectos con ${
+                  currentPrepared?.a3?.avgProgress || 0
+                }% de avance promedio en tareas 5W2H\n• **Quick Wins:** ${
+                  currentPrepared?.quickWins?.done || 0
+                }/${currentPrepared?.quickWins?.total || 0} implementados\n• **Gemba Walk:** ${
+                  currentPrepared?.gemba?.totalWalks || 0
+                } caminatas y ${
+                  currentPrepared?.gemba?.commitments?.length || 0
+                } pactos de compromiso.\n\n¿Sobre qué módulo o cuello de botella quieres profundizar?`,
+              },
+            ];
+
+      setChatHistory(initialGreeting);
+
+      // Guardar SOLO LA ÚLTIMA actualización en la base de datos
+      await persistSingleLatestToDatabase(newInsight, initialGreeting);
     } catch (err: any) {
       console.error('Error generating insight:', err);
       setError(err?.message || 'Error al generar análisis');
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    data,
+    companyName,
+    effectiveApiKey,
+    chatHistory,
+    totalRecordsCount,
+    persistSingleLatestToDatabase,
+  ]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || chatLoading) return;
+  // Si ya terminaron de cargar los datos de los módulos y la base de datos no tenía ningún análisis guardado,
+  // generamos automáticamente el primer diagnóstico para que siempre cargue de inmediato.
+  useEffect(() => {
+    if (
+      !dbLoading &&
+      !isSyncing &&
+      !insight &&
+      !loading &&
+      !error &&
+      totalRecordsCount > 0 &&
+      autoTriggeredRef.current !== scopeKey
+    ) {
+      autoTriggeredRef.current = scopeKey;
+      generateInsight();
+    }
+  }, [dbLoading, isSyncing, insight, loading, error, totalRecordsCount, scopeKey, generateInsight]);
 
-    const newUserMsg = { role: 'user', content: inputMessage };
+  const sendMessageText = async (messageText: string) => {
+    if (!messageText.trim() || chatLoading) return;
+
+    const newUserMsg = { role: 'user', content: messageText.trim() };
     const newHistory = [...chatHistory, newUserMsg];
 
     setChatHistory(newHistory);
@@ -241,16 +421,21 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
     setChatLoading(true);
 
     try {
-      const preparedData = prepareCompanyData(data, companyName);
+      const currentPrepared = prepareCompanyData(data, companyName);
       const response = await sendChatMessage(
         newHistory,
         newUserMsg.content,
-        preparedData,
+        currentPrepared,
         companyName,
         effectiveApiKey
       );
 
-      setChatHistory((prev) => [...prev, { role: 'model', content: response }]);
+      const updatedHistory = [...newHistory, { role: 'model', content: response }];
+      setChatHistory(updatedHistory);
+
+      if (insight) {
+        await persistSingleLatestToDatabase(insight, updatedHistory);
+      }
     } catch (err) {
       console.error(err);
       setChatHistory((prev) => [
@@ -263,6 +448,11 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
     } finally {
       setChatLoading(false);
     }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendMessageText(inputMessage);
   };
 
   const getStatusColor = (estado?: string) => {
@@ -281,37 +471,37 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
   const getAlertIcon = (tipo?: string) => {
     switch (tipo?.toLowerCase()) {
       case 'critica':
-        return <AlertCircle size={16} className="text-red-500" />;
+        return <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />;
       case 'advertencia':
-        return <AlertTriangle size={16} className="text-amber-500" />;
+        return <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />;
       default:
-        return <Info size={16} className="text-blue-500" />;
+        return <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />;
     }
   };
 
   const getAlertBg = (tipo?: string) => {
     switch (tipo?.toLowerCase()) {
       case 'critica':
-        return 'bg-red-50 border-red-100';
+        return 'bg-red-50 border-red-200';
       case 'advertencia':
-        return 'bg-amber-50 border-amber-100';
+        return 'bg-amber-50 border-amber-200';
       default:
-        return 'bg-blue-50 border-blue-100';
+        return 'bg-blue-50 border-blue-200';
     }
   };
 
   const getTrendIcon = (tendencia?: string) => {
     switch (tendencia) {
       case 'up':
-        return <TrendingUp size={16} className="text-emerald-500" />;
+        return <TrendingUp size={18} className="text-emerald-600" />;
       case 'down':
-        return <TrendingDown size={16} className="text-red-500" />;
+        return <TrendingDown size={18} className="text-red-600" />;
       default:
-        return <Minus size={16} className="text-slate-400" />;
+        return <Minus size={18} className="text-slate-500" />;
     }
   };
 
-  const formatDate = (isoString?: string) => {
+  const formatDate = (isoString?: string | null) => {
     if (!isoString) return '';
     return new Date(isoString).toLocaleDateString('es-ES', {
       day: 'numeric',
@@ -321,19 +511,17 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
     });
   };
 
-  // No API Key Configuration State
-  if (!effectiveApiKey || showKeyInput) {
+  if (showKeyInput) {
     return (
       <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 text-white h-full flex flex-col items-center justify-center text-center font-sans">
         <div className="p-4 bg-cyan-500/20 rounded-2xl mb-6">
           <Brain size={48} className="text-cyan-400" />
         </div>
         <h3 className="text-2xl font-black mb-2 tracking-tight">
-          Activar Consultor IA
+          Configurar API Key Personalizada
         </h3>
-        <p className="text-slate-400 text-sm max-w-sm mb-8 leading-relaxed">
-          Ingresa tu API Key de Gemini para comenzar el análisis inteligente de
-          tus datos de mejora continua.
+        <p className="text-slate-300 text-sm max-w-sm mb-8 leading-relaxed">
+          El Consultor IA ya cuenta con motor integrado, pero puedes ingresar tu propia API Key de Gemini si lo prefieres.
         </p>
 
         <div className="w-full max-w-md space-y-4">
@@ -362,22 +550,15 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
               className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold transition-all"
             >
               <Sparkles size={14} className="text-cyan-400" />
-              Obtener API Key Gratis
+              Obtener API Key en Google AI Studio
             </a>
-            {effectiveApiKey && (
-              <button
-                onClick={() => setShowKeyInput(false)}
-                className="px-4 py-2 text-slate-400 hover:text-white text-xs font-bold transition-all"
-              >
-                Cancelar
-              </button>
-            )}
+            <button
+              onClick={() => setShowKeyInput(false)}
+              className="px-4 py-2 text-slate-300 hover:text-white text-xs font-bold transition-all"
+            >
+              Volver al Consultor IA
+            </button>
           </div>
-        </div>
-
-        <div className="mt-12 flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-          <Info size={12} />
-          Tu API Key se almacena de forma segura en tu navegador
         </div>
       </div>
     );
@@ -391,12 +572,19 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
 
   const isExpanded = isMaximized ? true : expanded;
 
+  const quickQuestions = [
+    '¿Cuáles son las áreas más críticas en 5S y qué recomiendas hacer hoy?',
+    'Analiza el avance de las tareas 5W2H y causas raíz de nuestros proyectos A3',
+    '¿Qué estado tienen las Auditorías 5S y cuál de las 5S es la más débil?',
+    '¿Qué Quick Wins de alto impacto y compromisos de Gemba Walk están pendientes?',
+  ];
+
   return (
     <div className={containerClasses} style={isMaximized ? { margin: 0 } : {}}>
       {/* Top Header */}
-      <div className="bg-gradient-to-r from-slate-800 via-slate-800 to-cyan-900 p-0 flex flex-col shrink-0 font-sans">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-cyan-950 p-0 flex flex-col shrink-0 font-sans">
         <div
-          className={`${fullScreen ? 'px-4 py-2.5' : 'p-3 lg:p-4'} flex items-center justify-between ${
+          className={`${fullScreen ? 'px-4 py-3' : 'p-3 lg:p-4'} flex items-center justify-between ${
             !fullScreen && !isMaximized ? 'cursor-pointer' : ''
           }`}
           onClick={() => !fullScreen && !isMaximized && setExpanded(!expanded)}
@@ -406,42 +594,60 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
               <Brain size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-sm md:text-base flex items-center gap-2">
-                Consultor IA
-                <Sparkles size={14} className="text-cyan-400" />
-              </h3>
-              <p className="text-slate-400 text-xs">Análisis de Mejora Continua</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-white text-sm md:text-base flex items-center gap-1.5">
+                  <span>Consultor IA Master Black Belt</span>
+                  <Sparkles size={14} className="text-cyan-400" />
+                </h3>
+                <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <Database size={10} />
+                  {dbSavedAt ? 'Última actualización en BD' : 'Conectado a 6 Módulos'}
+                </span>
+              </div>
+              <p className="text-slate-300 text-xs">
+                {companyName} • 5S, Auditorías, Quick Wins, A3, VSM y Gemba Walk
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {insight?.generatedAt && (
-              <span className="text-[10px] text-slate-400 hidden sm:block text-right">
-                {formatDate(insight.generatedAt)} <br />
-                <span className="text-cyan-400 font-bold">
-                  {(data?.fiveS?.length || 0) + (data?.a3?.length || 0)} registros analizados
+
+          <div className="flex items-center gap-2.5">
+            {(dbSavedAt || insight?.generatedAt) && (
+              <div className="text-[11px] text-slate-300 hidden sm:block text-right leading-tight">
+                <span className="text-slate-400">Última actualización:</span>{' '}
+                <span className="font-bold text-white">
+                  {formatDate(dbSavedAt || insight?.generatedAt)}
                 </span>
-              </span>
+                <br />
+                <span className="text-cyan-400 font-bold">
+                  {totalRecordsCount} registros de 6 módulos captados
+                </span>
+              </div>
             )}
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 generateInsight();
               }}
               disabled={loading || isSyncing || Boolean(fetchError)}
-              className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title={isSyncing ? 'Sincronizando historial...' : 'Regenerar análisis'}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              title="Actualizar diagnóstico y guardar en la base de datos"
             >
               <RefreshCw
-                size={15}
-                className={`text-white ${loading || isSyncing ? 'animate-spin' : ''}`}
+                size={13}
+                className={`${loading || isSyncing ? 'animate-spin' : ''}`}
               />
+              <span className="hidden sm:inline">
+                {loading ? 'Analizando...' : 'Actualizar Análisis'}
+              </span>
             </button>
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setIsMaximized(!isMaximized);
               }}
-              className="p-1.5 text-slate-400 hover:text-white transition-colors hover:bg-white/10 rounded-lg"
+              className="p-1.5 text-slate-300 hover:text-white transition-colors hover:bg-white/10 rounded-lg"
               title={isMaximized ? 'Minimizar' : 'Pantalla Completa'}
             >
               {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -456,23 +662,23 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
 
         {/* Tabs Bar */}
         {isExpanded && (
-          <div className="flex bg-slate-900/50 backdrop-blur-sm px-3 pt-1.5 gap-1 border-t border-white/5 font-sans">
+          <div className="flex bg-slate-950/50 backdrop-blur-sm px-3 pt-1.5 gap-1 border-t border-white/10 font-sans">
             <button
               onClick={() => setActiveTab('analysis')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
                 activeTab === 'analysis'
-                  ? 'bg-white text-slate-800'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                  ? 'bg-slate-50 text-slate-900'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
               }`}
             >
-              <Target size={13} /> Análisis
+              <Target size={13} /> Diagnóstico 360°
             </button>
             <button
               onClick={() => setActiveTab('progress')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
                 activeTab === 'progress'
-                  ? 'bg-white text-slate-800'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                  ? 'bg-slate-50 text-slate-900'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
               }`}
             >
               <TrendingUp size={13} /> Progreso
@@ -481,8 +687,8 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
               onClick={() => setActiveTab('chat')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
                 activeTab === 'chat'
-                  ? 'bg-white text-slate-800'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                  ? 'bg-slate-50 text-slate-900'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
               }`}
             >
               <MessageSquare size={13} /> Chat Asistente
@@ -495,16 +701,21 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
       {isExpanded && (
         <div className="flex-1 overflow-hidden flex flex-col bg-slate-50 relative min-h-[400px]">
           {/* Loading Overlay */}
-          {loading && (
-            <div className="absolute inset-0 z-20 bg-white/70 backdrop-blur-[2px] flex flex-col items-center justify-center transition-all duration-300">
+          {(loading || dbLoading) && (
+            <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center transition-all duration-300">
               <div className="relative">
-                <Brain size={48} className="text-cyan-500 animate-pulse" />
+                <Brain size={48} className="text-cyan-600 animate-pulse" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-12 h-12 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-12 h-12 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
                 </div>
               </div>
-              <p className="mt-4 text-sm text-slate-700 font-bold animate-pulse font-sans">
-                {insight ? 'Actualizando análisis...' : 'Generando análisis de IA...'}
+              <p className="mt-4 text-sm text-slate-800 font-bold animate-pulse font-sans">
+                {dbLoading
+                  ? 'Recuperando última actualización desde la base de datos...'
+                  : 'Analizando los 6 módulos operativos con IA...'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Cruzando datos de 5S, Auditorías, Quick Wins, Proyectos A3, VSM y Gemba Walk
               </p>
             </div>
           )}
@@ -512,26 +723,25 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
           {/* Error Message */}
           {error && !loading && (
             <div className="p-6">
-              <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-start gap-3">
-                <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-red-800">
+                  <p className="text-sm font-bold text-red-900">
                     Error al generar análisis
                   </p>
-                  <p className="text-xs text-red-600 mt-1">{error}</p>
+                  <p className="text-xs text-red-700 mt-1">{error}</p>
                   <div className="flex gap-4 mt-3">
                     <button
                       onClick={generateInsight}
-                      className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1"
+                      className="text-xs font-bold text-red-700 hover:text-red-900 flex items-center gap-1"
                     >
-                      <RefreshCw size={12} /> Reintentar
+                      <RefreshCw size={12} /> Reintentar ahora
                     </button>
                     <button
                       onClick={() => setShowKeyInput(true)}
-                      className="text-xs font-bold text-slate-600 hover:text-slate-800 flex items-center gap-1"
+                      className="text-xs font-bold text-slate-700 hover:text-slate-900 flex items-center gap-1"
                     >
-                      <Sparkles size={12} className="text-cyan-500" /> Cambiar API
-                      Key
+                      <Sparkles size={12} className="text-cyan-600" /> Configurar API Key
                     </button>
                   </div>
                 </div>
@@ -540,18 +750,23 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
           )}
 
           {/* No Insight Placeholder */}
-          {!insight && !loading && !error && (
+          {!insight && !loading && !dbLoading && !error && (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center font-sans">
               <Brain
                 size={48}
-                className={`text-slate-300 mb-4 ${
+                className={`text-cyan-600 mb-4 ${
                   isSyncing ? 'animate-pulse' : ''
                 }`}
               />
-              <p className="text-slate-600 font-medium mb-4">
+              <h4 className="text-base font-bold text-slate-800 mb-1">
                 {isSyncing
-                  ? 'Sincronizando historial completo...'
-                  : 'Aún no se ha generado el diagnóstico Lean para esta empresa.'}
+                  ? 'Sincronizando datos de los 6 módulos...'
+                  : 'Listo para generar el diagnóstico Lean 360°'}
+              </h4>
+              <p className="text-xs text-slate-500 max-w-md mb-5">
+                {isSyncing
+                  ? 'Leyendo tarjetas 5S, auditorías, Quick Wins, proyectos A3, mapas VSM y caminatas Gemba...'
+                  : `Se han captado ${totalRecordsCount} registros operativos de ${companyName}. Genera el análisis para guardarlo en la base de datos.`}
               </p>
               <button
                 onClick={generateInsight}
@@ -559,7 +774,7 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                 className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-300 text-white rounded-xl text-sm font-bold shadow-md shadow-cyan-500/20 transition-all flex items-center gap-2"
               >
                 <Sparkles size={16} />
-                Generar Análisis con IA
+                Generar Diagnóstico con IA
               </button>
             </div>
           )}
@@ -567,25 +782,117 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
           {/* Tab 1: Analysis */}
           {insight && !error && activeTab === 'analysis' && (
             <div className="flex-1 overflow-y-auto p-5 space-y-5 animate-in fade-in duration-300 font-sans">
+              {/* Live 6-Module Data Capture Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                    <ClipboardList size={13} className="text-rose-600" />
+                    <span>Tarjetas 5S</span>
+                  </div>
+                  <p className="text-sm font-black text-slate-900 mt-1">
+                    {preparedData.fiveS.rate}% cierre
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-500">
+                    {preparedData.fiveS.pending + preparedData.fiveS.inProcess} abiertas de {preparedData.fiveS.total}
+                  </p>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                    <ShieldCheck size={13} className="text-cyan-600" />
+                    <span>Auditorías 5S</span>
+                  </div>
+                  <p className="text-sm font-black text-slate-900 mt-1">
+                    {preparedData.auditStats.avgScore}% madurez
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-500">
+                    {preparedData.auditStats.totalAudits} evaluaciones
+                  </p>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                    <Zap size={13} className="text-amber-600" />
+                    <span>Quick Wins</span>
+                  </div>
+                  <p className="text-sm font-black text-slate-900 mt-1">
+                    {preparedData.quickWins.done}/{preparedData.quickWins.total} listos
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-500">
+                    {preparedData.quickWins.highImpactPending} alto impacto pend.
+                  </p>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                    <Target size={13} className="text-indigo-600" />
+                    <span>Proyectos A3</span>
+                  </div>
+                  <p className="text-sm font-black text-slate-900 mt-1">
+                    {preparedData.a3.avgProgress}% tareas
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-500">
+                    {preparedData.a3.completedTasks}/{preparedData.a3.totalTasks} en {preparedData.a3.total} A3
+                  </p>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                    <Activity size={13} className="text-purple-600" />
+                    <span>Mapas VSM</span>
+                  </div>
+                  <p className="text-sm font-black text-slate-900 mt-1">
+                    {preparedData.vsm.count} flujos
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-500 truncate">
+                    {preparedData.vsm.details?.[0]?.bottleneckStation || 'Mapeo de valor'}
+                  </p>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                    <Footprints size={13} className="text-emerald-600" />
+                    <span>Gemba Walk</span>
+                  </div>
+                  <p className="text-sm font-black text-slate-900 mt-1">
+                    {preparedData.gemba.totalWalks} caminatas
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-500">
+                    {preparedData.gemba.commitments.length} pactos • {preparedData.gemba.kudosCount} kudos
+                  </p>
+                </div>
+              </div>
+
               {/* Executive Summary */}
               <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                <p className="text-slate-700 text-sm leading-relaxed italic">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-700">
+                    Resumen Ejecutivo
+                  </span>
+                  {dbSavedAt && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <Database size={11} />
+                      Memoria activa en BD ({formatDate(dbSavedAt)})
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-800 text-sm leading-relaxed font-medium">
                   "{insight.resumenEjecutivo}"
                 </p>
               </div>
 
               {/* Metric Highlight */}
               {insight.metricaDestacada && (
-                <div className="flex items-center justify-between bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+                <div className="flex items-center justify-between bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       {insight.metricaDestacada.nombre}
                     </p>
-                    <p className="text-2xl font-black text-slate-800 mt-1">
+                    <p className="text-2xl font-black text-slate-900 mt-1">
                       {insight.metricaDestacada.valor}
                     </p>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-xl">
+                  <div className="p-3 bg-slate-100 rounded-xl">
                     {getTrendIcon(insight.metricaDestacada.tendencia)}
                   </div>
                 </div>
@@ -594,8 +901,8 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
               {/* Progress Observations */}
               {insight.evaluacionProgreso?.observaciones?.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <Target size={14} /> Evaluación de Progreso
+                  <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Target size={14} /> Evaluación de Progreso por Módulo
                   </h4>
                   <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-3">
@@ -604,8 +911,8 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                           insight.evaluacionProgreso.estado
                         )}`}
                       ></div>
-                      <span className="text-xs font-bold uppercase text-slate-600">
-                        Estado: {insight.evaluacionProgreso.estado}
+                      <span className="text-xs font-bold uppercase text-slate-800">
+                        Estado Operativo: {insight.evaluacionProgreso.estado}
                       </span>
                     </div>
                     <ul className="space-y-2">
@@ -613,13 +920,13 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                         (obs: string, i: number) => (
                           <li
                             key={i}
-                            className="flex items-start gap-2 text-sm text-slate-600"
+                            className="flex items-start gap-2 text-sm text-slate-700"
                           >
                             <CheckCircle
-                              size={14}
-                              className="text-slate-400 shrink-0 mt-0.5"
+                              size={15}
+                              className="text-emerald-600 shrink-0 mt-0.5"
                             />
-                            {obs}
+                            <span>{obs}</span>
                           </li>
                         )
                       )}
@@ -631,23 +938,23 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
               {/* Alerts */}
               {insight.alertas?.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <AlertTriangle size={14} /> Alertas
+                  <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <AlertTriangle size={14} /> Alertas y Cuellos de Botella Detectados
                   </h4>
                   <div className="space-y-2">
                     {insight.alertas.map((alerta: any, i: number) => (
                       <div
                         key={i}
-                        className={`flex items-start gap-3 p-3 rounded-lg border ${getAlertBg(
+                        className={`flex items-start gap-3 p-3.5 rounded-xl border ${getAlertBg(
                           alerta.tipo
                         )}`}
                       >
                         {getAlertIcon(alerta.tipo)}
                         <div className="flex-1">
-                          <p className="text-sm text-slate-700">{alerta.mensaje}</p>
+                          <p className="text-sm font-medium text-slate-800">{alerta.mensaje}</p>
                           {alerta.proyecto && (
-                            <p className="text-xs text-slate-500 mt-1">
-                              Proyecto: {alerta.proyecto}
+                            <p className="text-xs font-bold text-slate-600 mt-1">
+                              Foco: {alerta.proyecto}
                             </p>
                           )}
                         </div>
@@ -660,45 +967,45 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
               {/* Next Steps Section */}
               {insight.proximosPasos?.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <ListTodo size={14} /> Próximos Pasos Sugeridos
                   </h4>
                   <div className="space-y-3">
                     {insight.proximosPasos.map((paso: any, i: number) => (
                       <div
                         key={i}
-                        className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-cyan-300 transition-colors group"
+                        className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-cyan-400 transition-colors group"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3">
                             <div
                               className={`mt-1 p-1.5 rounded-lg shrink-0 ${
                                 paso.prioridad === 'alta'
-                                  ? 'bg-red-100 text-red-600'
+                                  ? 'bg-red-100 text-red-700'
                                   : paso.prioridad === 'media'
-                                  ? 'bg-amber-100 text-amber-600'
-                                  : 'bg-blue-100 text-blue-600'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-blue-100 text-blue-700'
                               }`}
                             >
                               <ArrowRightCircle size={16} />
                             </div>
                             <div>
-                              <h5 className="font-bold text-slate-800 text-sm group-hover:text-cyan-700 transition-colors">
+                              <h5 className="font-bold text-slate-900 text-sm group-hover:text-cyan-700 transition-colors">
                                 {paso.titulo}
                               </h5>
-                              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                                 {paso.descripcion}
                               </p>
                             </div>
                           </div>
                           {paso.prioridad && (
                             <span
-                              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                              className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full shrink-0 ${
                                 paso.prioridad === 'alta'
-                                  ? 'bg-red-50 text-red-600 border border-red-100'
+                                  ? 'bg-red-100 text-red-800 border border-red-300'
                                   : paso.prioridad === 'media'
-                                  ? 'bg-amber-50 text-amber-600 border border-amber-100'
-                                  : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                  : 'bg-blue-100 text-blue-800 border border-blue-300'
                               }`}
                             >
                               {paso.prioridad}
@@ -713,19 +1020,19 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
 
               {/* Coaching Section */}
               {insight.coachingPracticas?.length > 0 && (
-                <div className="border border-cyan-100 rounded-xl overflow-hidden bg-white shadow-sm">
+                <div className="border border-cyan-200 rounded-xl overflow-hidden bg-white shadow-sm">
                   <button
                     onClick={() => setShowCoaching(!showCoaching)}
                     className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50 to-white hover:from-cyan-100 transition-colors"
                   >
-                    <span className="flex items-center gap-2 text-sm font-bold text-cyan-800">
+                    <span className="flex items-center gap-2 text-sm font-bold text-cyan-900">
                       <BookOpen size={16} />
-                      Coaching en Buenas Prácticas
+                      Coaching en Buenas Prácticas Lean
                     </span>
                     {showCoaching ? (
-                      <ChevronUp size={18} className="text-cyan-600" />
+                      <ChevronUp size={18} className="text-cyan-700" />
                     ) : (
-                      <ChevronDown size={18} className="text-cyan-600" />
+                      <ChevronDown size={18} className="text-cyan-700" />
                     )}
                   </button>
 
@@ -734,13 +1041,13 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                       {insight.coachingPracticas.map((tip: any, i: number) => (
                         <div key={i} className="flex items-start gap-3">
                           <div className="p-1.5 bg-cyan-100 rounded-lg shrink-0">
-                            <Lightbulb size={14} className="text-cyan-600" />
+                            <Lightbulb size={14} className="text-cyan-700" />
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-slate-800">
+                            <p className="text-sm font-bold text-slate-900">
                               {tip.tema}
                             </p>
-                            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                            <p className="text-xs text-slate-700 mt-1 leading-relaxed">
                               {tip.consejo}
                             </p>
                           </div>
@@ -753,11 +1060,11 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
 
               {/* Focus of the Day */}
               {insight.enfoqueDelDia && (
-                <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 rounded-xl p-4 text-white shadow-lg shadow-cyan-500/20">
+                <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl p-4 text-white shadow-lg shadow-cyan-600/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Target size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider opacity-80">
-                      Enfoque del Día
+                    <span className="text-xs font-bold uppercase tracking-wider opacity-90">
+                      Enfoque del Día (Reunión Diaria en Piso)
                     </span>
                   </div>
                   <p className="text-sm font-medium leading-relaxed">
@@ -772,8 +1079,8 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
           {insight && !error && activeTab === 'progress' && (
             <div className="flex-1 overflow-y-auto p-5 space-y-5 animate-in fade-in duration-300 font-sans">
               <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                <h4 className="text-sm font-bold text-slate-700 mb-6 flex items-center gap-2">
-                  <History size={18} className="text-cyan-500" />
+                <h4 className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <History size={18} className="text-cyan-600" />
                   Evolución Semanal de Mejoras (Acumulado)
                 </h4>
 
@@ -787,25 +1094,25 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                         <CartesianGrid
                           strokeDasharray="3 3"
                           vertical={false}
-                          stroke="#e2e8f0"
+                          stroke="#cbd5e1"
                         />
                         <XAxis
                           dataKey="name"
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: '#64748b', fontSize: 12 }}
+                          tick={{ fill: '#334155', fontSize: 12, fontWeight: 600 }}
                           dy={10}
                         />
                         <YAxis
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: '#64748b', fontSize: 12 }}
+                          tick={{ fill: '#334155', fontSize: 12, fontWeight: 600 }}
                         />
                         <RechartsTooltip
                           cursor={{ fill: '#f1f5f9' }}
                           contentStyle={{
                             borderRadius: '12px',
-                            border: 'none',
+                            border: '1px solid #e2e8f0',
                             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                           }}
                         />
@@ -813,22 +1120,22 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                         <Bar
                           dataKey="Tarjetas 5S Cerradas"
                           stackId="a"
-                          fill="#3b82f6"
+                          fill="#2563eb"
                           radius={[0, 0, 4, 4]}
-                          barSize={20}
+                          barSize={22}
                         />
                         <Bar
                           dataKey="Quick Wins"
                           stackId="a"
-                          fill="#10b981"
+                          fill="#059669"
                           radius={[4, 4, 0, 0]}
-                          barSize={20}
+                          barSize={22}
                         />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-[300px] text-slate-400">
+                  <div className="flex flex-col items-center justify-center h-[300px] text-slate-500">
                     <Calendar size={48} className="mb-4 opacity-50" />
                     <p className="font-medium">
                       No hay suficientes datos históricos para generar una tendencia.
@@ -842,11 +1149,11 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Mejoras Totales (Últimas 12 Semanas)
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Mejoras Totales Cerradas (Últimas 12 Semanas)
                   </p>
                   <div className="flex items-end gap-2">
-                    <span className="text-3xl font-black text-slate-800">
+                    <span className="text-3xl font-black text-slate-900">
                       {processedHistory.length > 0
                         ? (processedHistory[processedHistory.length - 1][
                             'Tarjetas 5S Cerradas'
@@ -854,21 +1161,21 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                           (processedHistory[processedHistory.length - 1][
                             'Quick Wins'
                           ] || 0)
-                        : 0}
+                        : preparedData.fiveS.closed + preparedData.quickWins.done}
                     </span>
-                    <span className="text-sm font-medium text-emerald-500 mb-1 flex items-center">
+                    <span className="text-sm font-bold text-emerald-600 mb-1 flex items-center">
                       <TrendingUp size={14} className="mr-1" /> Acumulado
                     </span>
                   </div>
                 </div>
-                <div className="bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl p-4 text-white shadow-md">
+                <div className="bg-gradient-to-br from-cyan-600 to-blue-700 rounded-xl p-4 text-white shadow-md">
                   <p className="text-xs font-bold text-cyan-100 uppercase tracking-wider mb-1">
-                    Análisis de Tendencia IA
+                    Lectura de Tracción Operativa
                   </p>
-                  <p className="text-sm font-medium leading-relaxed italic opacity-95">
-                    "La tendencia refleja una tracción constante en la resolución de
-                    anomalías de Gemba. Focalizar esfuerzos en cuellos de botella para
-                    maximizar el flujo de valor."
+                  <p className="text-sm font-medium leading-relaxed">
+                    El promedio de avance de tareas en proyectos A3 alcanza el{' '}
+                    <strong>{preparedData.a3.avgProgress}%</strong> con un tiempo medio de cierre 5S de{' '}
+                    <strong>{preparedData.fiveS.avgClosure} días</strong>.
                   </p>
                 </div>
               </div>
@@ -878,19 +1185,36 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
           {/* Tab 3: Chat Assistant */}
           {insight && !error && activeTab === 'chat' && (
             <div className="flex-1 flex flex-col h-full animate-in fade-in duration-300 font-sans">
+              {/* Quick Prompts Bar */}
+              <div className="px-4 py-2.5 bg-white border-b border-slate-200 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
+                <span className="text-[11px] font-bold text-slate-500 shrink-0">
+                  Consultas rápidas:
+                </span>
+                {quickQuestions.map((q, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={chatLoading}
+                    onClick={() => sendMessageText(q)}
+                    className="text-xs font-semibold px-3 py-1 rounded-full bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border border-cyan-200 whitespace-nowrap transition-colors disabled:opacity-50"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+
               {/* Chat Messages List */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
                 {chatHistory.length === 0 && (
                   <div className="text-center py-12 px-6">
-                    <div className="bg-cyan-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-cyan-600">
+                    <div className="bg-cyan-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-cyan-700">
                       <MessageSquare size={32} />
                     </div>
                     <h4 className="text-slate-800 font-bold mb-2">
-                      Asistente de Mejora Continua
+                      Asistente de Mejora Continua 360°
                     </h4>
-                    <p className="text-slate-500 text-sm">
-                      Pregúntame sobre tus Ishikawas, 5 Porqués, tarjetas 5S o cómo
-                      mejorar tus KPIs.
+                    <p className="text-slate-600 text-sm">
+                      Pregúntame sobre tus proyectos A3, planes 5W2H, tarjetas 5S, auditorías, mapas VSM o compromisos de Gemba Walk.
                     </p>
                   </div>
                 )}
@@ -903,10 +1227,10 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                     }`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm ${
+                      className={`max-w-[85%] rounded-2xl p-3.5 text-sm leading-relaxed shadow-sm ${
                         msg.role === 'user'
-                          ? 'bg-cyan-600 text-white rounded-br-none'
-                          : 'bg-white text-slate-700 border border-slate-200 rounded-bl-none'
+                          ? 'bg-cyan-600 text-white rounded-br-none font-medium'
+                          : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
                       }`}
                     >
                       {msg.content.split('\n').map((line, i) => (
@@ -922,13 +1246,13 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                   <div className="flex justify-start">
                     <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-none p-4 shadow-sm">
                       <div className="flex gap-1.5">
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"></div>
                         <div
-                          className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                          className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"
                           style={{ animationDelay: '150ms' }}
                         ></div>
                         <div
-                          className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                          className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"
                           style={{ animationDelay: '300ms' }}
                         ></div>
                       </div>
@@ -939,15 +1263,15 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
               </div>
 
               {/* Chat Input */}
-              <div className="p-3 bg-white border-t border-slate-200">
+              <div className="p-3 bg-white border-t border-slate-200 shrink-0">
                 <form
                   onSubmit={handleSendMessage}
                   className="relative flex items-center gap-2"
                 >
                   <input
                     type="text"
-                    className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none text-sm text-slate-800 placeholder-slate-400 transition-all font-sans"
-                    placeholder="Escribe tu consulta sobre los proyectos o datos..."
+                    className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none text-sm text-slate-900 placeholder-slate-500 transition-all font-sans"
+                    placeholder="Pregunta por áreas críticas, avance de tareas A3, auditorías 5S o compromisos Gemba..."
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     disabled={chatLoading}
@@ -955,7 +1279,7 @@ export const AIConsultant: React.FC<AIConsultantProps> = ({
                   <button
                     type="submit"
                     disabled={!inputMessage.trim() || chatLoading}
-                    className="absolute right-2 p-2 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg hover:shadow-md disabled:opacity-50 transition-all active:scale-95"
+                    className="absolute right-2 p-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:shadow-md disabled:opacity-50 transition-all active:scale-95"
                   >
                     <Send size={18} />
                   </button>
