@@ -41,7 +41,6 @@ export const DrillDownModal: React.FC<DrillDownModalProps> = ({
       case '5s':
       case '5s_closed':
         return [
-          { header: 'ID', accessor: 'cardNumber', width: 'w-16' },
           { header: 'Estado', accessor: 'status', width: 'w-24' },
           { header: 'Área', accessor: 'area', width: 'w-32' },
           { header: 'Descripción', accessor: 'description', width: 'flex-1' },
@@ -56,7 +55,6 @@ export const DrillDownModal: React.FC<DrillDownModalProps> = ({
       case 'quick_wins':
       case 'high_impact':
         return [
-          { header: 'ID', accessor: 'id', width: 'w-16' },
           { header: 'Estado', accessor: 'status', width: 'w-24' },
           { header: 'Impacto', accessor: 'impact', width: 'w-24' },
           { header: 'Título', accessor: 'title', width: 'flex-1' },
@@ -64,14 +62,12 @@ export const DrillDownModal: React.FC<DrillDownModalProps> = ({
         ];
       case 'vsm':
         return [
-          { header: 'ID', accessor: 'id', width: 'w-16' },
           { header: 'Nombre del Mapa', accessor: 'name', width: 'flex-1' },
           { header: 'Estado', accessor: 'status', width: 'w-32' },
           { header: 'Responsable', accessor: 'responsible', width: 'w-48' },
         ];
       case 'a3':
         return [
-          { header: 'ID', accessor: 'id', width: 'w-16' },
           { header: 'Proyecto A3', accessor: 'title', width: 'flex-1' },
           { header: 'Estado', accessor: 'status', width: 'w-32' },
           { header: 'Avance Tareas', accessor: 'progressStr', width: 'w-36' },
