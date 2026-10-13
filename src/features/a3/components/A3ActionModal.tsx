@@ -43,6 +43,8 @@ interface A3ActionModalProps {
   countermeasures?: string[];
   projectGoal?: string;
   rootCause?: string;
+  parentA3Title?: string;
+  onOpenParentA3?: () => void;
 }
 
 export const A3ActionModal: React.FC<A3ActionModalProps> = ({
@@ -56,6 +58,8 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
   countermeasures = [],
   projectGoal,
   rootCause,
+  parentA3Title,
+  onOpenParentA3,
 }) => {
   const [formData, setFormData] = useState<A3ActionPlanItem>({
     id: Date.now(),
@@ -330,29 +334,49 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold">
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold shrink-0">
               <Sparkles size={18} />
             </div>
-            <div>
-              <h2 className="text-base font-bold tracking-tight">
-                {actionToEdit ? 'Editar Acción 5W2H' : 'Nueva Acción 5W2H'}
-              </h2>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold tracking-tight">
+                  {actionToEdit ? 'Editar Acción 5W2H' : 'Nueva Acción 5W2H'}
+                </h2>
+                {parentA3Title && (
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 truncate max-w-xs">
+                    A3: {parentA3Title}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-400">
                 Estructura la ejecución con precisión: Qué, Por qué, Quién, Cuándo, Dónde, Cómo y Cuánto.
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleRequestClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors"
-            title="Cerrar ventana"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenParentA3 && (
+              <button
+                type="button"
+                onClick={onOpenParentA3}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs font-bold border border-indigo-400/40 transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="Abrir el tablero completo de este Proyecto A3 sin salir de Responsables"
+              >
+                <Layers size={13} />
+                <span className="hidden sm:inline">Ver Proyecto A3</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleRequestClose}
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors"
+              title="Cerrar ventana"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}

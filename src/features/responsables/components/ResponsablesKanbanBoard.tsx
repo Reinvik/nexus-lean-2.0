@@ -20,6 +20,7 @@ import {
   Users,
   UserCheck,
   Filter,
+  Eye,
 } from 'lucide-react';
 import type { TaskItem, CollaboratorPerformance } from '../ResponsablesPage';
 
@@ -31,7 +32,8 @@ interface ResponsablesKanbanBoardProps {
   currentUserName?: string;
   onUpdateTaskStatus: (task: TaskItem, newStatus: 'pending' | 'in_progress' | 'completed') => Promise<void>;
   onToggleSubtask?: (task: TaskItem, subtaskId: string | number) => Promise<void>;
-  onNavigateToTask: (link: string) => void;
+  onOpenTask: (task: TaskItem) => void;
+  onNavigateToTask?: (link: string) => void;
   isCompact?: boolean;
 }
 
@@ -93,6 +95,7 @@ export const ResponsablesKanbanBoard: React.FC<ResponsablesKanbanBoardProps> = (
   currentUserName,
   onUpdateTaskStatus,
   onToggleSubtask,
+  onOpenTask,
   onNavigateToTask,
   isCompact = false,
 }) => {
@@ -473,11 +476,12 @@ export const ResponsablesKanbanBoard: React.FC<ResponsablesKanbanBoardProps> = (
                         key={task.id}
                         draggable={task.type !== 'AUDIT' && !isUpdating}
                         onDragStart={(e) => handleDragStart(e, task)}
-                        className={`group rounded-xl bg-white border border-slate-200/95 border-l-4 ${style.accentBorder} p-3.5 shadow-xs hover:shadow-md transition-all space-y-2.5 ${
-                          task.type !== 'AUDIT' ? 'cursor-grab active:cursor-grabbing' : ''
+                        onClick={() => onOpenTask(task)}
+                        className={`group rounded-xl bg-white border border-slate-200/95 border-l-4 ${style.accentBorder} p-3.5 shadow-xs hover:shadow-md hover:border-cyan-300 transition-all space-y-2.5 cursor-pointer ${
+                          task.type !== 'AUDIT' ? 'active:cursor-grabbing' : ''
                         } ${isUpdating ? 'opacity-60 pointer-events-none' : ''}`}
                       >
-                        {/* Top Row: Badge + Date + Go to Module */}
+                        {/* Top Row: Badge + Date + Open Card Modal */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5">
                             {task.type !== 'AUDIT' && (
@@ -512,18 +516,19 @@ export const ResponsablesKanbanBoard: React.FC<ResponsablesKanbanBoardProps> = (
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onNavigateToTask(task.link);
+                                onOpenTask(task);
                               }}
-                              className="p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
-                              title="Abrir en su módulo original"
+                              className="px-2 py-0.5 rounded-lg text-[10px] font-bold text-cyan-700 bg-cyan-50/80 hover:bg-cyan-600 hover:text-white border border-cyan-200/80 transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Abrir tarjeta completa sin salir del módulo de Responsables"
                             >
-                              <ExternalLink size={13} />
+                              <Eye size={11} />
+                              <span>Abrir</span>
                             </button>
                           </div>
                         </div>
 
                         {/* Task Title */}
-                        <h5 className="text-xs sm:text-[13px] font-bold text-slate-900 leading-snug">
+                        <h5 className="text-xs sm:text-[13px] font-bold text-slate-900 group-hover:text-cyan-700 transition-colors leading-snug">
                           {task.title}
                         </h5>
 

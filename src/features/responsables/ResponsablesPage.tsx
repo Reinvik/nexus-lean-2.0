@@ -47,6 +47,8 @@ import {
 } from 'recharts';
 import toast from 'react-hot-toast';
 import ResponsablesKanbanBoard from './components/ResponsablesKanbanBoard';
+import ResponsablesTaskDetailModals from './components/ResponsablesTaskDetailModals';
+import { Profile, A3Project } from '../../types';
 
 // Helper: Calculate ISO week number and year
 export const getISOWeekInfo = (
@@ -156,12 +158,15 @@ export interface CollaboratorPerformance {
 }
 
 export const ResponsablesPage: React.FC = () => {
-  const { activeCompanyId, user } = useAuth();
+  const { activeCompanyId, user, companies } = useAuth();
   const navigate = useNavigate();
 
   const [collaborators, setCollaborators] = useState<CollaboratorPerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCollaboratorName, setSelectedCollaboratorName] = useState<string | null>(null);
+  const [activeModalTask, setActiveModalTask] = useState<TaskItem | null>(null);
+  const [profilesList, setProfilesList] = useState<Profile[]>([]);
+  const [a3ProjectsMap, setA3ProjectsMap] = useState<Map<string, A3Project>>(new Map());
 
   // Main View Mode: 'team' (Equipo & Ranking) or 'kanban' (Tablero Kanban Operativo)
   const [mainViewMode, setMainViewMode] = useState<'team' | 'kanban'>('team');
@@ -203,25 +208,13 @@ export const ResponsablesPage: React.FC = () => {
 
       const [profilesRes, cardsRes, winsRes, a3Res, auditsRes, vsmRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name, email, role, company_id'),
-        applyFilter(
-          supabase
-            .from('five_s_cards')
-            .select('id, assigned_to, responsible, status, findings, area, description, card_number, created_at, close_date, updated_at, company_id')
-        ),
-        applyFilter(
-          supabase
-            .from('quick_wins')
-            .select('id, responsible, status, title, description, impact, created_at, completed_at, date, deadline, company_id')
-        ),
-        applyFilter(
-          supabase
-            .from('a3_projects')
-            .select('id, responsible, status, title, action_plan, created_at, date, company_id')
-        ),
+        applyFilter(supabase.from('five_s_cards').select('*')),
+        applyFilter(supabase.from('quick_wins').select('*')),
+        applyFilter(supabase.from('a3_projects').select('*')),
         applyFilter(
           supabase
             .from('audit_5s')
-            .select('id, auditor, status, total_score, audit_date, area, created_at, company_id')
+            .select('*')
             .not('auditor', 'is', null)
         ),
         applyFilter(
@@ -234,6 +227,7 @@ export const ResponsablesPage: React.FC = () => {
       // Profile dictionaries for clean name & email resolution
       const profileById = new Map<string, { id: string; name: string; email: string; role: string }>();
       const profileByName = new Map<string, { id: string; name: string; email: string; role: string }>();
+      const formattedProfiles: Profile[] = [];
 
       (profilesRes.data || []).forEach((p: any) => {
         const fullName = p.full_name?.trim() || '';
@@ -241,10 +235,19 @@ export const ResponsablesPage: React.FC = () => {
         const displayName = fullName || email;
         if (!displayName) return;
 
+        formattedProfiles.push({
+          id: p.id,
+          full_name: displayName,
+          email,
+          role: p.role || 'user',
+          company_id: p.company_id || null,
+        });
+
         const info = { id: p.id, name: displayName, email, role: p.role || 'Colaborador' };
         if (p.id) profileById.set(p.id, info);
         profileByName.set(displayName.toLowerCase(), info);
       });
+      setProfilesList(formattedProfiles);
 
       // Name resolver helper (strictly avoids raw UUIDs)
       const resolveNameAndProfile = (val: string | null | undefined) => {
@@ -449,7 +452,42 @@ export const ResponsablesPage: React.FC = () => {
       });
 
       // 3. Process A3 Projects & 5W2H Action Plan Subtasks
+      const nextA3ProjectsMap = new Map<string, A3Project>();
       (a3Res.data || []).forEach((a: any) => {
+        const formattedA3: A3Project = {
+          id: a.id,
+          company_id: a.company_id || null,
+          companyId: a.company_id || null,
+          title: a.title || 'Proyecto A3',
+          status: a.status || 'Nuevo',
+          responsible: a.responsible || '',
+          date: a.date || (a.created_at ? a.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+          background: a.background || '',
+          currentCondition: a.current_condition || '',
+          goal: a.goal || '',
+          rootCause: a.root_cause || '',
+          ishikawas: Array.isArray(a.ishikawas) ? a.ishikawas : [],
+          five_whys: Array.isArray(a.five_whys) ? a.five_whys : [],
+          multipleFiveWhys: Array.isArray(a.five_whys) ? a.five_whys : [],
+          countermeasures: a.countermeasures || '',
+          countermeasureList: Array.isArray(a.countermeasure_list) ? a.countermeasure_list : [],
+          execution_plan: a.execution_plan || '',
+          plan: a.execution_plan || '',
+          actionPlan: Array.isArray(a.action_plan) ? a.action_plan : [],
+          action_plan: Array.isArray(a.action_plan) ? a.action_plan : [],
+          actionPlansMeta: Array.isArray(a.action_plans_meta) ? a.action_plans_meta : undefined,
+          follow_up_notes: a.follow_up_notes || '',
+          followUp: a.follow_up_notes || '',
+          backgroundImageUrl: a.background_image_url || '',
+          currentConditionImageUrl: a.current_condition_image_url || '',
+          followUpData: Array.isArray(a.follow_up_data)
+            ? a.follow_up_data
+            : a.follow_up_data && Object.keys(a.follow_up_data).length > 0
+            ? [a.follow_up_data]
+            : [],
+        };
+        nextA3ProjectsMap.set(a.id, formattedA3);
+
         if (a.responsible) {
           const prof = resolveNameAndProfile(a.responsible);
           if (prof) {
@@ -473,7 +511,7 @@ export const ResponsablesPage: React.FC = () => {
               extra: 'Líder del Proyecto',
               createdWeekKey: createdWeek.key,
               closedWeekKey: closedWeek?.key,
-              rawTask: a,
+              rawTask: formattedA3,
               collaboratorName: prof.name,
             };
 
@@ -590,6 +628,7 @@ export const ResponsablesPage: React.FC = () => {
           });
         }
       });
+      setA3ProjectsMap(nextA3ProjectsMap);
 
       // 4. Process VSM Projects
       (vsmRes.data || []).forEach((v: any) => {
@@ -630,6 +669,7 @@ export const ResponsablesPage: React.FC = () => {
           extra: `Puntaje: ${normalizedScore}%`,
           createdWeekKey: auditWeek.key,
           closedWeekKey: auditWeek.key,
+          rawTask: au,
           collaboratorName: prof.name,
         };
 
@@ -1430,6 +1470,7 @@ export const ResponsablesPage: React.FC = () => {
                 isCompact={true}
                 onUpdateTaskStatus={handleUpdateTaskStatus}
                 onToggleSubtask={handleToggleSubtask}
+                onOpenTask={(task) => setActiveModalTask(task)}
                 onNavigateToTask={(link) => navigate(link)}
               />
             ) : (
@@ -1507,7 +1548,7 @@ export const ResponsablesPage: React.FC = () => {
                       return (
                         <div
                           key={`${task.id}_${idx}`}
-                          onClick={() => navigate(task.link)}
+                          onClick={() => setActiveModalTask(task)}
                           className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-cyan-500 hover:bg-white cursor-pointer transition-all flex items-center justify-between gap-4 group shadow-sm hover:shadow"
                         >
                           <div className="flex items-center gap-3 min-w-0">
@@ -1557,6 +1598,7 @@ export const ResponsablesPage: React.FC = () => {
             currentUserName={user?.name}
             onUpdateTaskStatus={handleUpdateTaskStatus}
             onToggleSubtask={handleToggleSubtask}
+            onOpenTask={(task) => setActiveModalTask(task)}
             onNavigateToTask={(link) => navigate(link)}
           />
         </div>
@@ -1929,6 +1971,18 @@ export const ResponsablesPage: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* Modal unificado de detalle de tareas sin salir del módulo de Responsables */}
+      <ResponsablesTaskDetailModals
+        activeTask={activeModalTask}
+        onClose={() => setActiveModalTask(null)}
+        onRefreshData={() => loadData(true)}
+        users={profilesList}
+        companies={companies || []}
+        currentUser={user}
+        targetCompanyId={activeCompanyId}
+        a3ProjectsMap={a3ProjectsMap}
+      />
     </div>
   );
 };
