@@ -22,6 +22,8 @@ import {
   Settings,
   Shield,
   UserCheck,
+  KeyRound,
+  Copy,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -66,10 +68,20 @@ export const UsersPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
   const [editFullName, setEditFullName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editNewPassword, setEditNewPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [editCompanyId, setEditCompanyId] = useState('');
   const [editRole, setEditRole] = useState('user');
   const [editIsAuthorized, setEditIsAuthorized] = useState(true);
   const [isSavingUser, setIsSavingUser] = useState(false);
+
+  // Reset Password Modal State
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserItem | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(true);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   // Quick Create Company Modal State
   const [isCreateCompanyModalOpen, setIsCreateCompanyModalOpen] = useState(false);
@@ -134,24 +146,124 @@ export const UsersPage: React.FC = () => {
   const openEditModal = (user: UserItem) => {
     setEditingUser(user);
     setEditFullName(user.full_name || '');
+    setEditEmail(user.email || '');
+    setEditNewPassword('');
+    setShowEditPassword(false);
     setEditCompanyId(user.company_id || '');
     setEditRole(user.role || 'user');
     setEditIsAuthorized(user.is_authorized !== false && user.is_active !== false);
     setIsEditModalOpen(true);
   };
 
+  // Open Reset Password Modal
+  const openResetPasswordModal = (user: UserItem) => {
+    setResetPasswordUser(user);
+    setResetPasswordValue('Cial2026');
+    setShowResetPassword(true);
+    setIsResetPasswordModalOpen(true);
+  };
+
+  // Execute Password Reset RPC
+  const executePasswordReset = async (targetUser: UserItem, newPasswordPlain: string) => {
+    const cleanPass = newPasswordPlain.trim();
+    if (cleanPass.length < 6) {
+      throw new Error('La contraseña debe tener al menos 6 caracteres');
+    }
+
+    const { data: rpcData, error: rpcError } = await supabase.rpc('admin_set_user_password', {
+      target_user_id: targetUser.id,
+      new_password: cleanPass,
+    });
+
+    if (rpcError || !rpcData?.success) {
+      if (targetUser.email) {
+        const { data: fallbackData, error: fallbackError } = await supabase.rpc(
+          'admin_set_user_password_by_email',
+          {
+            target_email: targetUser.email.trim().toLowerCase(),
+            new_password: cleanPass,
+          }
+        );
+        if (fallbackError || !fallbackData?.success) {
+          throw new Error(
+            fallbackError?.message ||
+              rpcError?.message ||
+              'No se pudo actualizar la contraseña en Auth'
+          );
+        }
+      } else {
+        throw new Error(rpcError?.message || 'No se pudo actualizar la contraseña');
+      }
+    }
+  };
+
+  // Handle Reset Password Form Submit
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPasswordUser) return;
+    if (!resetPasswordValue || resetPasswordValue.trim().length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    const toastId = toast.loading('Reseteando contraseña y confirmando acceso...');
+
+    try {
+      await executePasswordReset(resetPasswordUser, resetPasswordValue);
+
+      toast.success(
+        `Contraseña actualizada para ${resetPasswordUser.full_name || resetPasswordUser.email}`,
+        { id: toastId }
+      );
+      setIsResetPasswordModalOpen(false);
+      setResetPasswordUser(null);
+      setResetPasswordValue('');
+      await loadData();
+    } catch (err: any) {
+      console.error('Error resetting password:', err);
+      toast.error(err?.message || 'Error al resetear contraseña', { id: toastId });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   // Save Edit User
   const handleSaveEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
+    if (editNewPassword.trim() && editNewPassword.trim().length < 6) {
+      toast.error('La nueva contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     setIsSavingUser(true);
     const toastId = toast.loading('Actualizando usuario...');
 
     try {
+      const cleanEmail = editEmail.trim().toLowerCase();
+      if (cleanEmail && cleanEmail !== (editingUser.email || '').toLowerCase()) {
+        const { error: emailErr } = await supabase.rpc('admin_update_user_email', {
+          target_user_id: editingUser.id,
+          new_email: cleanEmail,
+        });
+        if (emailErr) {
+          console.warn('No se pudo actualizar email via RPC:', emailErr);
+        }
+      }
+
+      if (editNewPassword.trim()) {
+        await executePasswordReset(
+          { ...editingUser, email: cleanEmail || editingUser.email },
+          editNewPassword
+        );
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: editFullName.trim(),
+          email: cleanEmail || editingUser.email,
           company_id: editCompanyId || null,
           role: editRole,
           is_authorized: editIsAuthorized,
@@ -162,9 +274,15 @@ export const UsersPage: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success('Usuario actualizado correctamente', { id: toastId });
+      toast.success(
+        editNewPassword.trim()
+          ? 'Usuario y contraseña actualizados correctamente'
+          : 'Usuario actualizado correctamente',
+        { id: toastId }
+      );
       setIsEditModalOpen(false);
       setEditingUser(null);
+      setEditNewPassword('');
       await loadData();
     } catch (err: any) {
       console.error('Error saving user edit:', err);
@@ -682,6 +800,15 @@ export const UsersPage: React.FC = () => {
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => openResetPasswordModal(u)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                            title="Resetear Contraseña"
+                          >
+                            <KeyRound size={13} />
+                            <span className="hidden sm:inline">Clave</span>
+                          </button>
+
+                          <button
                             onClick={() => openEditModal(u)}
                             className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Editar Usuario y Empresa"
@@ -933,6 +1060,65 @@ export const UsersPage: React.FC = () => {
                 />
               </div>
 
+              {/* Correo Electrónico */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Correo Electrónico
+                </label>
+                <div className="relative">
+                  <Mail
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 shadow-sm font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Nueva Contraseña Opcional */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Nueva Contraseña <span className="text-slate-400 font-normal">(opcional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditNewPassword('Cial2026');
+                      setShowEditPassword(true);
+                    }}
+                    className="text-[11px] text-amber-600 hover:underline font-semibold"
+                  >
+                    Usar Cial2026
+                  </button>
+                </div>
+                <div className="relative">
+                  <KeyRound
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type={showEditPassword ? 'text' : 'password'}
+                    placeholder="Dejar en blanco para mantener la contraseña actual"
+                    value={editNewPassword}
+                    onChange={(e) => setEditNewPassword(e.target.value)}
+                    className="w-full pl-9 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-amber-500 shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
               {/* Empresa Asignada */}
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -1010,6 +1196,135 @@ export const UsersPage: React.FC = () => {
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50"
                 >
                   {isSavingUser ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Resetear Contraseña */}
+      {isResetPasswordModalOpen && resetPasswordUser && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsResetPasswordModalOpen(false);
+          }}
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden my-auto">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-amber-50/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center font-bold">
+                  <KeyRound size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Resetear Contraseña</h3>
+                  <p className="text-xs text-slate-600 font-medium">
+                    {resetPasswordUser.full_name || 'Usuario'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsResetPasswordModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleResetPassword} className="p-6 space-y-4">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] text-slate-400 font-semibold uppercase">
+                    Cuenta de Acceso
+                  </p>
+                  <p className="text-xs sm:text-sm font-mono font-bold text-slate-800 truncate">
+                    {resetPasswordUser.email}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `Usuario: ${resetPasswordUser.email}\nContraseña: ${resetPasswordValue}`
+                    );
+                    toast.success('Credenciales copiadas al portapapeles');
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold shrink-0 shadow-sm"
+                  title="Copiar usuario y contraseña"
+                >
+                  <Copy size={13} />
+                  <span>Copiar</span>
+                </button>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Nueva Contraseña *
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setResetPasswordValue('Cial2026')}
+                      className="px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[11px] font-bold transition-colors"
+                    >
+                      Cial2026
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResetPasswordValue('Nexus2026')}
+                      className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-bold transition-colors"
+                    >
+                      Nexus2026
+                    </button>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Lock
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type={showResetPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    placeholder="Mínimo 6 caracteres"
+                    value={resetPasswordValue}
+                    onChange={(e) => setResetPasswordValue(e.target.value)}
+                    className="w-full pl-9 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:border-amber-500 shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showResetPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  Al guardar, se actualizará la clave inmediatamente, se confirmará el correo y se habilitará el acceso directo sin requerir verificación por email.
+                </p>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsResetPasswordModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResettingPassword}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                >
+                  <KeyRound size={14} />
+                  <span>{isResettingPassword ? 'Actualizando...' : 'Guardar Nueva Contraseña'}</span>
                 </button>
               </div>
             </form>
