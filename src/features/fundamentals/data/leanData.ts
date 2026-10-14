@@ -356,6 +356,266 @@ export const GLOSSARY_ITEMS: GlossaryItem[] = [
     realWorldExample:
       'Operar con camiones sobrecargados que rompen la suspensión (Muri) debido a que todos los pedidos se concentran solo los viernes (Mura).',
   },
+  {
+    id: 'jidoka',
+    term: 'Jidoka (Autonomatización)',
+    originalTerm: '自働化',
+    pronunciation: 'Ji-dō-ka (Automatización con toque humano)',
+    category: 'flujo',
+    categoryLabel: 'Flujo & Productividad',
+    tagColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    shortSummary: 'Parada automática inmediata ante anomalías para no pasar defectos aguas abajo.',
+    simpleExplanation:
+      'En lugar de tener a una persona vigilando una máquina todo el turno por si falla, la máquina se detiene sola apenas detecta una irregularidad o defecto. Esto separa el trabajo humano de la máquina y previene fabricar chatarra.',
+    realWorldExample:
+      'Como una impresora que frena al instante si el papel se traba y avisa con una luz, o una envasadora que se detiene sola si una botella viene sin tapa.',
+  },
+  {
+    id: 'heijunka',
+    term: 'Heijunka (Nivelación de Producción)',
+    originalTerm: '平準化',
+    pronunciation: 'Hei-jun-ka (Nivelar volumen y mezcla)',
+    category: 'flujo',
+    categoryLabel: 'Flujo & Productividad',
+    tagColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    shortSummary: 'Nivelar la producción en volumen y variedad para eliminar picos de estrés y valles de ocio.',
+    simpleExplanation:
+      'En vez de producir lotes gigantes de un solo producto (ej: hacer 1.000 unidades del Producto A el lunes y nada del Producto B hasta el viernes), se programa una secuencia balanceada diaria según la demanda real del cliente (ej: A-B-A-B). Esto evita saturar bodegas y elimina el desbalance (Mura).',
+    realWorldExample:
+      'Una panadería que hornea tandas pequeñas y variadas a lo largo de la mañana en vez de hornear 500 marraquetas a las 6 AM y dejar enfriar el pan el resto del día.',
+  },
+  {
+    id: 'hoshin-kanri',
+    term: 'Hoshin Kanri (Despliegue Estratégico)',
+    originalTerm: '方針管理',
+    pronunciation: 'Hō-shin Kan-ri (Brújula estratégica)',
+    category: 'filosofia',
+    categoryLabel: 'Filosofía & Cultura',
+    tagColor: 'bg-purple-100 text-purple-800 border-purple-200',
+    shortSummary: 'Alinear los objetivos estratégicos de la gerencia con el trabajo diario de cada equipo en terreno.',
+    simpleExplanation:
+      'Metodología para asegurar que las metas de la compañía no queden guardadas en un cajón. Mediante un diálogo constante de ida y vuelta ("Catchball"), cada nivel de la organización define sus propios proyectos y métricas para empujar exactamente en la misma dirección.',
+    realWorldExample:
+      'Si la meta anual de la gerencia es "cero accidentes", en la bodega se traduce en "100% de inspección diaria de grúas y pasillos despejados con 5S".',
+    nexusModule: {
+      label: 'Alinear en Proyectos A3',
+      path: '/a3',
+    },
+  },
+  {
+    id: 'obeya',
+    term: 'Obeya (Gran Sala de Gestión / War Room)',
+    originalTerm: '大部屋',
+    pronunciation: 'O-be-ya (Habitación grande de control)',
+    category: 'herramientas',
+    categoryLabel: 'Herramientas de Terreno',
+    tagColor: 'bg-teal-100 text-teal-800 border-teal-200',
+    shortSummary: 'Espacio físico o virtual donde los líderes gestionan proyectos a la vista con tableros interactivos.',
+    simpleExplanation:
+      'Una sala de control cuyas paredes están repletas de gráficos de avance, indicadores visuales, cuellos de botella y planes de acción. En lugar de informes de 50 páginas, el equipo se junta 15 minutos de pie frente a la pared y toma decisiones rápidas y coordinadas.',
+    realWorldExample:
+      'El equipo de mantenimiento, operaciones y logística reunido todas las mañanas durante 10 minutos frente al tablero de planta para destrabar los pedidos críticos de la jornada.',
+    nexusModule: {
+      label: 'Ver Panel Dashboard',
+      path: '/dashboard',
+    },
+  },
+  {
+    id: 'standardized-work',
+    term: 'Trabajo Estandarizado (Standardized Work)',
+    originalTerm: '標準作業',
+    pronunciation: 'Hyō-jun Sa-gyō',
+    category: 'herramientas',
+    categoryLabel: 'Herramientas de Terreno',
+    tagColor: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+    shortSummary: 'La mejor forma conocida y acordada hoy para realizar una tarea con seguridad y eficiencia.',
+    simpleExplanation:
+      'Documenta la secuencia exacta de pasos, el tiempo asignado y el stock necesario para hacer un trabajo. No busca convertir a la gente en robots, sino establecer una línea base confiable; sin un estándar claro, es imposible saber si una mejora realmente funcionó.',
+    realWorldExample:
+      'El manual con fotos y pasos claros de cómo armar un pallet de exportación para que no se desarme en el viaje, garantizando que el operario novato y el experto lo hagan con idéntica calidad.',
+    nexusModule: {
+      label: 'Auditar Estándares 5S',
+      path: '/auditorias-5s',
+    },
+  },
+  {
+    id: 'one-piece-flow',
+    term: 'Flujo de Una Sola Pieza (One-Piece Flow)',
+    originalTerm: '1個流し',
+    pronunciation: 'Ikko-nagashi (Flujo continuo pieza a pieza)',
+    category: 'flujo',
+    categoryLabel: 'Flujo & Productividad',
+    tagColor: 'bg-sky-100 text-sky-800 border-sky-200',
+    shortSummary: 'Mover el producto unidad a unidad entre estaciones sin acumular lotes ni esperas intermedias.',
+    simpleExplanation:
+      'En vez de esperar a llenar un pallet con 200 cajas para moverlo a la siguiente estación (procesamiento por lotes), se procesa y transfiere una sola unidad a la vez. Reduce los tiempos de espera a una fracción y detecta cualquier falla de calidad inmediatamente.',
+    realWorldExample:
+      'Envoltorio de paquetes: doblar el papel, pegar la cinta y colocar el lazo a un paquete antes de empezar el siguiente, en vez de cortar 50 papeles y recién al final notar que el tamaño estaba equivocado.',
+    nexusModule: {
+      label: 'Mapear Flujo en VSM',
+      path: '/vsm',
+    },
+  },
+  {
+    id: 'pull-system',
+    term: 'Sistema Pull (Flujo de Arrastre)',
+    originalTerm: 'Pull Production System',
+    pronunciation: 'Sistema de arrastre según demanda',
+    category: 'flujo',
+    categoryLabel: 'Flujo & Productividad',
+    tagColor: 'bg-blue-100 text-blue-800 border-blue-200',
+    shortSummary: 'Producir o mover materiales únicamente cuando la etapa siguiente o el cliente lo solicita.',
+    simpleExplanation:
+      'Lo contrario a empujar (Push) producción basada en pronósticos inciertos. En un sistema Pull, ningún puesto de trabajo procesa nada hasta que el cliente aguas abajo consume una unidad y envía una señal visual (Kanban). Esto erradica el exceso de inventario.',
+    realWorldExample:
+      'Un restaurante a la carta: el cocinero solo prepara el plato cuando el cliente pide la orden, en lugar de freír 30 porciones a las 2 PM esperando a ver si alguien llega.',
+  },
+  {
+    id: 'supermarket',
+    term: 'Supermercado Lean (Buffer Regulado)',
+    originalTerm: 'Supermarket Pull System',
+    pronunciation: 'Su-per-mar-ket',
+    category: 'herramientas',
+    categoryLabel: 'Herramientas de Terreno',
+    tagColor: 'bg-amber-100 text-amber-800 border-amber-200',
+    shortSummary: 'Ubicación física intermedia con stock limitado y controlado que abastece un flujo Pull.',
+    simpleExplanation:
+      'Un área de almacenamiento dimensionada con niveles mínimos y máximos visibles. Cuando el proceso que sigue retira insumos, el proceso que provee recibe de inmediato la orden de reponer exactamente lo retirado, manteniendo el equilibrio del inventario.',
+    realWorldExample:
+      'Un dispensador de vasos de café: sacas un vaso por abajo y el resorte baja el siguiente; cuando quedan pocos en el tubo transparente, se repone exactamente la cantidad que falta.',
+  },
+  {
+    id: 'genchi-genbutsu',
+    term: 'Genchi Genbutsu (Ir a la Fuente)',
+    originalTerm: '現地現物',
+    pronunciation: 'Gen-chi Gen-but-su (Sitio real, cosas reales)',
+    category: 'filosofia',
+    categoryLabel: 'Filosofía & Cultura',
+    tagColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    shortSummary: 'Comprobar la realidad de los hechos directamente con tus propios ojos, no por rumores ni planillas.',
+    simpleExplanation:
+      'Principio fundamental de Toyota: antes de proponer una solución o juzgar un atraso, el líder debe ir físicamente al lugar del evento, tocar el material, observar el proceso y hablar con los operarios que viven la situación.',
+    realWorldExample:
+      'Si un cliente dice que las cajas llegan golpeadas, el jefe de operaciones va al andén a cargar camiones él mismo para verificar cómo vibran los bultos en el flete.',
+    nexusModule: {
+      label: 'Realizar Gemba Walk',
+      path: '/gemba',
+    },
+  },
+  {
+    id: 'yokoten',
+    term: 'Yokoten (Despliegue Horizontal)',
+    originalTerm: '横展開',
+    pronunciation: 'Yo-ko-ten (Compartir lateralmente)',
+    category: 'filosofia',
+    categoryLabel: 'Filosofía & Cultura',
+    tagColor: 'bg-violet-100 text-violet-800 border-violet-200',
+    shortSummary: 'Compartir y replicar las mejoras exitosas de un equipo a todas las demás áreas de la empresa.',
+    simpleExplanation:
+      'Evitar que cada área invente la rueda por separado. Cuando una línea encuentra una solución brillante a un problema, Yokoten significa documentarla y transmitirla a los otros turnos y plantas para que todos se beneficien al instante.',
+    realWorldExample:
+      'El andén 1 implementó un tope de goma que evita que las transpaletas rayen las puertas; mediante Yokoten, los andenes 2, 3 y 4 colocan el mismo tope esa misma semana.',
+    nexusModule: {
+      label: 'Replicar en Quick Wins',
+      path: '/quick-wins',
+    },
+  },
+  {
+    id: 'hansei',
+    term: 'Hansei (Autorreflexión y Aprendizaje)',
+    originalTerm: '反省',
+    pronunciation: 'Han-sei (Autocrítica constructiva)',
+    category: 'filosofia',
+    categoryLabel: 'Filosofía & Cultura',
+    tagColor: 'bg-rose-100 text-rose-800 border-rose-200',
+    shortSummary: 'Reconocer honestamente las fallas y oportunidades de mejora, incluso tras un proyecto exitoso.',
+    simpleExplanation:
+      'No es para deprimirse ni buscar culpables, sino para extraer sabiduría. Consiste en detenerse a reflexionar: "¿Qué no salió como esperábamos? ¿Qué haríamos distinto la próxima vez?". Sin Hansei no hay verdadero Kaizen.',
+    realWorldExample:
+      'Tras despachar a tiempo el pedido más grande del año, el equipo se reúne 15 minutos para analizar por qué tuvieron que hacer horas extras a última hora y qué mejorar para la próxima campaña.',
+    nexusModule: {
+      label: 'Cierre y Lecciones en A3',
+      path: '/a3',
+    },
+  },
+  {
+    id: 'nemawashi',
+    term: 'Nemawashi (Construcción de Consenso)',
+    originalTerm: '根回し',
+    pronunciation: 'Ne-ma-wa-shi (Preparar las raíces antes de trasplantar)',
+    category: 'filosofia',
+    categoryLabel: 'Filosofía & Cultura',
+    tagColor: 'bg-teal-100 text-teal-800 border-teal-200',
+    shortSummary: 'Alinear y consultar previamente a las personas clave antes de presentar un cambio oficial.',
+    simpleExplanation:
+      'Proviene de la botánica japonesa: antes de trasplantar un árbol, se cuidan y preparan sus raíces individualmente para que no muera. En las empresas, antes de implementar una nueva regla o software, se conversa uno a uno con los involucrados para escuchar sus dudas y enriquecer la propuesta.',
+    realWorldExample:
+      'Antes de modificar el sistema de rotación de turnos, el supervisor comparte un café con los delegados de cada turno para recoger sugerencias antes de la votación formal.',
+  },
+  {
+    id: 'visual-management',
+    term: 'Gestión Visual (Mieruka)',
+    originalTerm: '見える化',
+    pronunciation: 'Mie-ru-ka (Hacer visible el estado)',
+    category: 'herramientas',
+    categoryLabel: 'Herramientas de Terreno',
+    tagColor: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+    shortSummary: 'Hacer que cualquier desviación o estado operativo sea visible en menos de 5 segundos.',
+    simpleExplanation:
+      'Utilizar colores, sombras de herramientas, marcas en el piso, luces y letreros claros para que cualquiera distinga lo normal de lo anormal a simple vista, sin necesidad de preguntar ni consultar un sistema computacional.',
+    realWorldExample:
+      'Pintar franjas verdes y rojas en los manómetros de presión de una compresora para saber a 10 metros si la presión de aire está en el rango seguro.',
+    nexusModule: {
+      label: 'Módulo Tarjetas 5S',
+      path: '/5s',
+    },
+  },
+  {
+    id: 'spaghetti-diagram',
+    term: 'Diagrama de Espagueti (Spaghetti Chart)',
+    originalTerm: 'Diagrama de Recorridos',
+    pronunciation: 'Spa-ghet-ti Char-t',
+    category: 'herramientas',
+    categoryLabel: 'Herramientas de Terreno',
+    tagColor: 'bg-orange-100 text-orange-800 border-orange-200',
+    shortSummary: 'Plano gráfico que dibuja las rutas físicas de personas o materiales para evidenciar traslados inútiles.',
+    simpleExplanation:
+      'Se trazan sobre el plano del taller o bodega las líneas de movimiento de un operario durante su jornada. El resultado parece un plato de fideos enredados (espagueti), demostrando cuánto camina la persona innecesariamente por un mal diseño del espacio.',
+    realWorldExample:
+      'Descubrir en el plano que un preparador camina 8 kilómetros al día solo porque los rollos de film plástico están guardados al final del pasillo 5 en vez de su mesón de embalaje.',
+    nexusModule: {
+      label: 'Mapear Layout en VSM',
+      path: '/vsm',
+    },
+  },
+  {
+    id: 'mizusumashi',
+    term: 'Mizusumashi / Water Spider (Repartidor Logístico)',
+    originalTerm: '水すまし',
+    pronunciation: 'Mi-zu-su-ma-shi (Escarabajo acuático)',
+    category: 'flujo',
+    categoryLabel: 'Flujo & Productividad',
+    tagColor: 'bg-sky-100 text-sky-800 border-sky-200',
+    shortSummary: 'Operador móvil dedicado a abastecer piezas e insumos para que los operarios no dejen su puesto.',
+    simpleExplanation:
+      'Una persona experimentada que recorre una ruta fija en la planta recogiendo productos terminados y entregando materias primas justo a tiempo. Así, los operadores de las estaciones se concentran al 100% en las tareas que agregan valor.',
+    realWorldExample:
+      'En una línea de montaje, el repartidor pasa cada 15 minutos con un carrito recargando tornillos y cajas vacías, evitando que los operarios apaguen su máquina para ir a la bodega central.',
+  },
+  {
+    id: 'chaku-chaku',
+    term: 'Chaku-Chaku (Cargar y Cargar)',
+    originalTerm: '着々',
+    pronunciation: 'Cha-ku Cha-ku (Carga continua)',
+    category: 'flujo',
+    categoryLabel: 'Flujo & Productividad',
+    tagColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    shortSummary: 'Célula donde las máquinas expulsan las piezas automáticamente para que el operario solo cargue y avance.',
+    simpleExplanation:
+      'Formato de línea en célula donde cada máquina termina su ciclo y eyecta el producto sola (gracias a Jidoka). El operador toma la pieza con una mano, la carga en la siguiente máquina, la arranca y avanza a la siguiente sin esperar tiempos muertos.',
+    realWorldExample:
+      'Una cortadora de perfiles donde el operario solo inserta la barra; la máquina corta a la medida y eyecta el tubo cortado por una rampa hacia la siguiente estación sin intervención humana.',
+  },
 ];
 
 export const WASTES_LIST: WasteItem[] = [
@@ -674,6 +934,45 @@ export const TRIVIA_QUESTIONS: TriviaQuestion[] = [
     ],
     correctIndex: 1,
     explanation: '¡Correcto! Preguntar "¿Por qué?" sucesivamente permite descubrir el fallo en el proceso o estándar, no en la persona.',
+    difficulty: 'fácil',
+  },
+  {
+    id: 8,
+    question: '¿Qué describe el concepto Lean de "Jidoka" (Autonomatización)?',
+    options: [
+      'Reemplazar a todos los trabajadores por robots industriales.',
+      'Detener automáticamente el proceso o máquina apenas se detecta una anomalía o defecto.',
+      'Trabajar el doble de rápido para compensar los retrasos.',
+      'Comprar maquinaria importada cada año.',
+    ],
+    correctIndex: 1,
+    explanation: '¡Excelente! Jidoka dota a las máquinas y personas del poder de detener la línea ante un defecto para nunca enviar productos defectuosos al siguiente paso.',
+    difficulty: 'medio',
+  },
+  {
+    id: 9,
+    question: '¿Cuál es el objetivo principal de aplicar "Heijunka"?',
+    options: [
+      'Nivelar y suavizar la producción en volumen y mezcla para evitar la sobrecarga y los tiempos muertos.',
+      'Pintar las paredes de color verde para mejorar el estado de ánimo.',
+      'Despedir al personal de bodega.',
+      'Acumular la mayor cantidad de inventario posible en los pasillos.',
+    ],
+    correctIndex: 0,
+    explanation: '¡Correcto! Heijunka equilibra la producción diaria según la demanda del cliente, eliminando el estrés de las olas de trabajo y los valles de ocio (Mura).',
+    difficulty: 'medio',
+  },
+  {
+    id: 10,
+    question: 'Cuando un turno inventa una mejora excelente y la comparte con todas las demás líneas de la empresa, ¿qué principio Lean se está viviendo?',
+    options: [
+      'Muda (Desperdicio).',
+      'Yokoten (Despliegue horizontal de buenas prácticas).',
+      'Poka-Yoke (A prueba de errores).',
+      'Takt Time (Ritmo de cliente).',
+    ],
+    correctIndex: 1,
+    explanation: '¡Brillante! Yokoten es la práctica japonesa de difundir el conocimiento y las soluciones de un equipo a toda la organización para multiplicar los beneficios.',
     difficulty: 'fácil',
   },
 ];

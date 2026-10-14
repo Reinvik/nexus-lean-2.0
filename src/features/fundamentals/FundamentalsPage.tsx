@@ -219,7 +219,7 @@ export const FundamentalsPage: React.FC = () => {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 type="text"
-                placeholder="Buscar término (ej: Gemba, 5S, Poka-Yoke, A3, Kanban, Takt Time)..."
+                placeholder="Buscar término (ej: Jidoka, Heijunka, Gemba, Obeya, 5S, Hoshin Kanri, Poka-Yoke)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 font-sans"
@@ -236,21 +236,26 @@ export const FundamentalsPage: React.FC = () => {
             </div>
 
             {/* Category pills */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    selectedCategory === cat.id
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      selectedCategory === cat.id
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs font-semibold text-slate-500 hidden sm:inline-block">
+                Mostrando <strong className="text-slate-800 font-bold">{filteredGlossary.length}</strong> de {GLOSSARY_ITEMS.length} términos
+              </span>
             </div>
           </div>
 
@@ -259,7 +264,7 @@ export const FundamentalsPage: React.FC = () => {
             <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-8">
               <HelpCircle className="mx-auto text-slate-300 mb-3" size={40} />
               <p className="text-slate-600 font-bold">No se encontraron términos para tu búsqueda.</p>
-              <p className="text-slate-400 text-xs mt-1">Prueba con palabras como Kaizen, Desperdicio, Espera o 5S.</p>
+              <p className="text-slate-400 text-xs mt-1">Prueba con palabras como Jidoka, Heijunka, Obeya, Kaizen, Desperdicio o 5S.</p>
               <button
                 type="button"
                 onClick={() => {
