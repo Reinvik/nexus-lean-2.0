@@ -59,7 +59,7 @@ export const LoginPage: React.FC = () => {
       const result = await login(cleanEmail, password);
       if (!result || !result.success) {
         if (result?.message?.includes('Invalid login credentials')) {
-          setError('Correo o contraseña incorrectos. Verifica tus datos de acceso.');
+          setError('Correo o contraseña incorrectos. Recuerda que tu contraseña es la misma de Nexus Outbound / CIAL.');
         } else {
           setError(result?.message || 'Credenciales no reconocidas. Revisa tu estándar de acceso.');
         }

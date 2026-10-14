@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, supabaseProd } from '../../lib/supabase';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 
@@ -16,14 +16,23 @@ export const ForgotPasswordPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      const cleanEmail = email.trim().toLowerCase();
+      const [resMain, resProd] = await Promise.allSettled([
+        supabase.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }),
+        supabaseProd.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }),
+      ]);
 
-      if (resetErr) {
-        setError(resetErr.message);
+      const mainVal = resMain.status === 'fulfilled' ? resMain.value : null;
+      const prodVal = resProd.status === 'fulfilled' ? resProd.value : null;
+
+      if (mainVal?.error && prodVal?.error) {
+        setError(mainVal.error.message || prodVal.error.message);
       } else {
-        setMessage('Se ha enviado un enlace de recuperación a tu correo electrónico.');
+        setMessage('Se ha enviado un enlace de recuperación unificado a tu correo electrónico.');
       }
     } catch (err: any) {
       setError(err?.message || 'Error al solicitar recuperación.');

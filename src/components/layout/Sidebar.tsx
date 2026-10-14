@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, syncUnifiedPasswordAcrossNexus } from '../../lib/supabase';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -158,6 +158,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         }
         const { error: passErr } = await supabase.auth.updateUser({ password: newPassword });
         if (passErr) throw passErr;
+
+        // Sincronizar instantáneamente en todo el ecosistema Nexus
+        if (user.email) {
+          syncUnifiedPasswordAcrossNexus(user.email, newPassword).catch(() => {});
+        }
       }
 
       toast.success('Perfil actualizado correctamente');

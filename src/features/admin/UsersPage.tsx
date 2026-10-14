@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { supabase, syncUnifiedPasswordAcrossNexus } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import type { Company } from '../../types';
 import {
@@ -195,6 +195,11 @@ export const UsersPage: React.FC = () => {
         throw new Error(rpcError?.message || 'No se pudo actualizar la contraseña');
       }
     }
+
+    // Sincronizar en todo el ecosistema Nexus (PROD y MAIN)
+    if (targetUser.email) {
+      syncUnifiedPasswordAcrossNexus(targetUser.email, cleanPass).catch(() => {});
+    }
   };
 
   // Handle Reset Password Form Submit
@@ -370,6 +375,9 @@ export const UsersPage: React.FC = () => {
         // Fallback to update by email
         await supabase.from('profiles').update(profileData).eq('email', cleanMail);
       }
+
+      // Sincronizar contraseña unificada en todo el ecosistema Nexus
+      syncUnifiedPasswordAcrossNexus(cleanMail, newPassword).catch(() => {});
 
       toast.success('¡Usuario creado y asignado con éxito!', { id: toastId });
       setIsCreateUserModalOpen(false);

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseProd, syncUnifiedPasswordAcrossNexus } from '../lib/supabase';
 import type { NexusUser, Profile, Company, UserRole } from '../types';
 
 interface AuthContextType {
@@ -74,7 +74,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isGlobalAdmin = role === 'platform_admin' || role === 'superadmin' || isNexusOwner;
       const isCompanyAdmin = role === 'superuser' || isGlobalAdmin;
 
-      const companyId = prof?.company_id || null;
+      const cleanEmail = (email || prof?.email || '').trim().toLowerCase();
+      const isCialUser = cleanEmail.endsWith('@cial.cl');
+      const CIAL_COMPANY_ID = 'eadc8792-b666-4d96-845c-1bf321161569';
+      const companyId = prof?.company_id || (isCialUser ? CIAL_COMPANY_ID : null);
+
       let companyAllowedModules: string[] | null = null;
       if (companyId) {
         const { data: comp } = await supabase
@@ -101,11 +105,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'consultor_ia',
         ];
 
+      // Auto-reparación de perfil si falta autorización o empresa
+      if (isCialUser && (!prof || !prof.is_authorized || !prof.company_id)) {
+        void supabase
+          .from('profiles')
+          .upsert({
+            id: userId,
+            email: cleanEmail,
+            full_name: prof?.full_name || cleanEmail.split('@')[0],
+            role,
+            is_authorized: true,
+            is_active: true,
+            company_id: CIAL_COMPANY_ID,
+            updated_at: new Date().toISOString(),
+          });
+      }
+
       const nexusUser: NexusUser = {
         id: userId,
-        email: email || prof?.email || '',
-        name: prof?.full_name || email?.split('@')[0] || 'Usuario',
-        fullName: prof?.full_name || email?.split('@')[0] || 'Usuario',
+        email: cleanEmail,
+        name: prof?.full_name || cleanEmail.split('@')[0] || 'Usuario',
+        fullName: prof?.full_name || cleanEmail.split('@')[0] || 'Usuario',
         role,
         companyId,
         company_id: companyId,
@@ -113,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isGlobalAdmin,
         isCompanyAdmin,
         canAccessAdmin: isCompanyAdmin,
-        isAuthorized: prof?.is_authorized !== false,
+        isAuthorized: isCialUser ? true : prof?.is_authorized !== false,
         hasAiAccess: prof?.has_ai_access !== false,
         allowedModules,
         databaseSchema: prof?.database_schema || 'public',
@@ -176,11 +196,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const cleanEmail = email.trim().toLowerCase();
+      let { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+
+      // Si falla en MAIN, verificar si el usuario tiene cuenta válida en PROD (Dock / Ecosistema Nexus)
+      if (error && (error.message.includes('Invalid login credentials') || error.message.includes('User not found'))) {
+        try {
+          const { data: prodData, error: prodError } = await supabaseProd.auth.signInWithPassword({
+            email: cleanEmail,
+            password,
+          });
+
+          if (!prodError && prodData?.user) {
+            // Usuario y contraseña válidos en servidor PROD -> Sincronizar automáticamente en MAIN
+            await supabase.rpc('sync_user_credentials', {
+              target_email: cleanEmail,
+              new_password: password,
+            });
+
+            // Reintentar inicio de sesión en MAIN con la contraseña sincronizada
+            const retry = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+            data = retry.data;
+            error = retry.error;
+          }
+        } catch (syncErr) {
+          console.warn('Error en verificación de contraseña unificada Nexus:', syncErr);
+        }
+      }
+
       if (error) {
         return { success: false, message: error.message };
       }
+
       if (data.user) {
+        // En segundo plano, garantizar sincronización unificada hacia PROD
+        void syncUnifiedPasswordAcrossNexus(cleanEmail, password);
+
         await fetchUserProfile(data.user.id, data.user.email || '');
         return { success: true };
       }
