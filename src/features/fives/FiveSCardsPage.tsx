@@ -18,6 +18,7 @@ import {
   User,
   FileText,
   CheckCircle,
+  CheckCircle2,
   AlertCircle,
   Clock,
   BarChart as BarIcon,
@@ -46,6 +47,7 @@ import {
   CartesianGrid,
   LineChart,
   Line,
+  LabelList,
 } from 'recharts';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -800,6 +802,521 @@ export const FiveSCardsPage: React.FC = () => {
         </button>
       </div>
 
+      {/* KPI Dashboard Section (Arriba de las Tarjetas) */}
+      {(cards.length > 0 || visibleCards.length > 0) && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 md:p-6 transition-all">
+          {/* Header con botón para modo presentación */}
+          <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-xs">
+                <BarIcon size={20} />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <span>Indicadores de Gestión 5S</span>
+                  <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                    {kpiData.total} {kpiData.total === 1 ? 'tarjeta' : 'tarjetas'}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Haz clic en cualquier estado o área para filtrar interactivamente las tarjetas
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {(statusFilter !== 'Todos' || filterLocation) && (
+                <button
+                  onClick={() => {
+                    setStatusFilter('Todos');
+                    setFilterLocation('');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors active:scale-95"
+                >
+                  <X size={13} />
+                  <span>Restablecer Filtros</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setIsPresentationMode(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
+                title="Abrir vista de presentación en pantalla completa"
+              >
+                <Maximize2 size={14} />
+                <span>Vista Presentación (PPT 16:9)</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Columna 1: Resumen General y Promedio de Cierre */}
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Total Tarjetas
+                  </span>
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900">
+                      {kpiData.total}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400">
+                      en planta
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50/60 rounded-xl p-3.5 border border-emerald-200/80 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                    Cumplimiento
+                  </span>
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="text-2xl sm:text-3xl font-black text-emerald-600">
+                      {kpiData.completionRate}%
+                    </span>
+                    <span className="text-[10px] font-semibold text-emerald-700">
+                      resuelto
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl p-4 shadow-xs border border-emerald-100/90 relative overflow-hidden flex-1 flex flex-col justify-between">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1 bg-emerald-100 rounded-full text-emerald-600">
+                    <CheckCircle2 size={14} />
+                  </div>
+                  <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                    Promedio de Cierre de Tarjetas 5S
+                  </h4>
+                </div>
+
+                {/* Circular Gauge */}
+                <div className="flex flex-col items-center justify-center relative my-2">
+                  <div className="relative w-36 h-36">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={10} minHeight={10}>
+                      <PieChart>
+                        <Pie
+                          data={[{ value: 1 }]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={52}
+                          outerRadius={64}
+                          startAngle={90}
+                          endAngle={-270}
+                          fill="#ecfdf5"
+                          stroke="none"
+                          dataKey="value"
+                          isAnimationActive={false}
+                        />
+                        <Pie
+                          data={[
+                            { value: parseFloat(String(kpiData.closureStats?.avg || 0)) },
+                            {
+                              value: Math.max(
+                                0,
+                                parseFloat(String(kpiData.closureStats?.max || 1)) -
+                                  parseFloat(String(kpiData.closureStats?.avg || 0))
+                              ),
+                            },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={52}
+                          outerRadius={64}
+                          startAngle={90}
+                          endAngle={-270}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          <Cell fill="#10b981" />
+                          <Cell fill="transparent" />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none">
+                        {kpiData.closureStats?.avg || '0'}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                        Días Promedio
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Min / Max Footer */}
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 rounded-lg p-2 px-3 text-xs">
+                  <div className="text-center">
+                    <span className="text-slate-400 font-bold uppercase text-[9px] block">
+                      Más Rápida
+                    </span>
+                    <span className="text-emerald-600 font-black text-xs sm:text-sm">
+                      {kpiData.closureStats?.min || '0'} días
+                    </span>
+                  </div>
+                  <div className="h-5 w-px bg-slate-200"></div>
+                  <div className="text-center">
+                    <span className="text-slate-400 font-bold uppercase text-[9px] block">
+                      Más Lenta
+                    </span>
+                    <span className="text-rose-600 font-black text-xs sm:text-sm">
+                      {kpiData.closureStats?.max || '0'} días
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Columna 2: Distribución por Estado (Doughnut central + 3 grandes botones Cerrado, En Progreso, Abierto) */}
+            <div className="bg-slate-50/50 rounded-xl p-4 sm:p-5 border border-slate-200/80 flex flex-col justify-between transition-all hover:border-slate-300">
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity size={15} className="text-blue-600" /> Distribución por Estado
+                </h4>
+                {statusFilter !== 'Todos' ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStatusFilterToggle(statusFilter);
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-white hover:bg-rose-600 transition-colors shadow-xs"
+                    title="Quitar filtro de estado"
+                  >
+                    <span>Filtro: {statusFilter}</span>
+                    <X size={10} />
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-medium">Clic para filtrar</span>
+                )}
+              </div>
+
+              {/* Gráfico Donut con Métrica Central */}
+              <div className="relative h-44 flex items-center justify-center my-1">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={kpiData.statusData.filter((d) => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={75}
+                      paddingAngle={4}
+                      dataKey="value"
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                      cursor="pointer"
+                      onClick={(entry: any) => {
+                        if (entry && entry.name) {
+                          handleStatusFilterToggle(entry.name);
+                        }
+                      }}
+                    >
+                      {kpiData.statusData.filter((d) => d.value > 0).map((entry, index) => {
+                        const isSelected =
+                          (entry.name === 'En Progreso' && (statusFilter === 'En Progreso' || statusFilter === 'En Proceso')) ||
+                          statusFilter === entry.name;
+                        const isAnyStatusActive = statusFilter !== 'Todos';
+
+                        return (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.color}
+                            opacity={isAnyStatusActive && !isSelected ? 0.35 : 1}
+                            stroke={isSelected ? '#0f172a' : '#ffffff'}
+                            strokeWidth={isSelected ? 3 : 2}
+                            style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                          />
+                        );
+                      })}
+                    </Pie>
+                    <RechartsTooltip
+                      formatter={(value: any, name: any) => [
+                        `${value} tarjetas (${kpiData.total > 0 ? Math.round((Number(value) / kpiData.total) * 100) : 0}%)`,
+                        `${name} (clic para filtrar)`,
+                      ]}
+                      contentStyle={{
+                        borderRadius: '8px',
+                        border: 'none',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        fontSize: '11px',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                {/* Número Total en el Centro del Donut */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                    Total
+                  </span>
+                  <span className="text-3xl font-black text-slate-900 tracking-tight my-0.5">
+                    {kpiData.total}
+                  </span>
+                  <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider leading-none">
+                    Tarjetas
+                  </span>
+                </div>
+              </div>
+
+              {/* 3 Grandes Tarjetas de Estado Interactivas: Cerrado, En Progreso, Abierto */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                {/* Cerrado */}
+                {(() => {
+                  const isSelected = statusFilter === 'Cerrado';
+                  const count = kpiData.closed;
+                  const pct = kpiData.total > 0 ? Math.round((count / kpiData.total) * 100) : 0;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusFilterToggle('Cerrado')}
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-500 ring-offset-1'
+                          : 'bg-emerald-50/70 border-emerald-200/90 text-slate-800 hover:bg-emerald-100 hover:border-emerald-300 shadow-xs'
+                      }`}
+                      title="Clic para filtrar tarjetas Cerradas"
+                    >
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
+                          <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? 'bg-white' : 'bg-emerald-500'}`} />
+                          <span className={isSelected ? 'text-white' : 'text-emerald-900'}>Cerrado</span>
+                        </span>
+                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-md ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-emerald-200/70 text-emerald-800'
+                        }`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-1">
+                        <span className={`text-2xl sm:text-3xl font-black ${isSelected ? 'text-white' : 'text-emerald-700'}`}>
+                          {count}
+                        </span>
+                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-emerald-100' : 'text-slate-500'}`}>
+                          resueltas
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* En Progreso */}
+                {(() => {
+                  const isSelected = statusFilter === 'En Progreso' || statusFilter === 'En Proceso';
+                  const count = kpiData.inProcess;
+                  const pct = kpiData.total > 0 ? Math.round((count / kpiData.total) * 100) : 0;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusFilterToggle('En Progreso')}
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-md ring-2 ring-amber-400 ring-offset-1'
+                          : 'bg-amber-50/70 border-amber-200/90 text-slate-800 hover:bg-amber-100 hover:border-amber-300 shadow-xs'
+                      }`}
+                      title="Clic para filtrar tarjetas En Progreso"
+                    >
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
+                          <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? 'bg-white' : 'bg-amber-500'}`} />
+                          <span className={isSelected ? 'text-white' : 'text-amber-900'}>En Progreso</span>
+                        </span>
+                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-md ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-amber-200/70 text-amber-800'
+                        }`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-1">
+                        <span className={`text-2xl sm:text-3xl font-black ${isSelected ? 'text-white' : 'text-amber-700'}`}>
+                          {count}
+                        </span>
+                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-amber-100' : 'text-slate-500'}`}>
+                          en gestión
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Abierto */}
+                {(() => {
+                  const isSelected = statusFilter === 'Abierto';
+                  const count = kpiData.pending;
+                  const pct = kpiData.total > 0 ? Math.round((count / kpiData.total) * 100) : 0;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusFilterToggle('Abierto')}
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer ${
+                        isSelected
+                          ? 'bg-rose-600 text-white border-rose-700 shadow-md ring-2 ring-rose-500 ring-offset-1'
+                          : 'bg-rose-50/70 border-rose-200/90 text-slate-800 hover:bg-rose-100 hover:border-rose-300 shadow-xs'
+                      }`}
+                      title="Clic para filtrar tarjetas Abiertas"
+                    >
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
+                          <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? 'bg-white' : 'bg-rose-500'}`} />
+                          <span className={isSelected ? 'text-white' : 'text-rose-900'}>Abierto</span>
+                        </span>
+                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-md ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-rose-200/70 text-rose-800'
+                        }`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-1">
+                        <span className={`text-2xl sm:text-3xl font-black ${isSelected ? 'text-white' : 'text-rose-700'}`}>
+                          {count}
+                        </span>
+                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-rose-100' : 'text-slate-500'}`}>
+                          pendientes
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Columna 3: Top Áreas con Hallazgos */}
+            <div className="bg-slate-50/50 rounded-xl p-4 sm:p-5 border border-slate-200/80 flex flex-col justify-between transition-all hover:border-slate-300">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <BarIcon size={15} className="text-blue-600" /> Top Áreas con Hallazgos
+                </h4>
+                {filterLocation ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLocationFilterToggle(filterLocation);
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-white hover:bg-rose-600 transition-colors shadow-xs"
+                    title="Quitar filtro de área"
+                  >
+                    <span>Filtro: {filterLocation}</span>
+                    <X size={10} />
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-medium">Clic para filtrar</span>
+                )}
+              </div>
+
+              <div className="flex-1 min-h-[220px] relative">
+                {kpiData.locationData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={kpiData.locationData}
+                      layout="vertical"
+                      margin={{ top: 8, right: 30, left: 10, bottom: 8 }}
+                      onClick={(state: any) => {
+                        if (state && state.activePayload && state.activePayload.length > 0) {
+                          const areaName = state.activePayload[0].payload.name;
+                          handleLocationFilterToggle(areaName);
+                        }
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" hide domain={[0, 'dataMax + 2']} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={110}
+                        tick={(props: any) => {
+                          const { x, y, payload } = props;
+                          const isSelected = filterLocation === payload.value;
+                          return (
+                            <g
+                              transform={`translate(${x},${y})`}
+                              style={{ cursor: 'pointer' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLocationFilterToggle(payload.value);
+                              }}
+                            >
+                              <title>{`Filtrar por ${payload.value}`}</title>
+                              <text
+                                x={0}
+                                y={0}
+                                dy={4}
+                                textAnchor="end"
+                                fill={isSelected ? '#1d4ed8' : '#334155'}
+                                fontSize={11}
+                                fontWeight={isSelected ? 'bold' : '600'}
+                                className="hover:underline transition-colors"
+                              >
+                                {payload.value.length > 15
+                                  ? `${payload.value.substring(0, 13)}…`
+                                  : payload.value}
+                              </text>
+                            </g>
+                          );
+                        }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <RechartsTooltip
+                        cursor={{ fill: '#f8fafc' }}
+                        formatter={(value: any, name: any, item: any) => [
+                          `${value} hallazgos`,
+                          `${item?.payload?.name || name} (clic para filtrar)`,
+                        ]}
+                        contentStyle={{
+                          borderRadius: '8px',
+                          border: 'none',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                          fontSize: '11px',
+                        }}
+                      />
+                      <Bar
+                        dataKey="count"
+                        radius={[0, 6, 6, 0]}
+                        barSize={20}
+                        cursor="pointer"
+                        onClick={(entry: any) => {
+                          if (entry && entry.name) {
+                            handleLocationFilterToggle(entry.name);
+                          }
+                        }}
+                      >
+                        <LabelList
+                          dataKey="count"
+                          position="right"
+                          fill="#1e293b"
+                          fontSize={11}
+                          fontWeight="bold"
+                          offset={8}
+                        />
+                        {kpiData.locationData.map((entry, index) => {
+                          const isSelected = filterLocation === entry.name;
+                          const isAnySelected = Boolean(filterLocation);
+                          return (
+                            <Cell
+                              key={`bar-${index}`}
+                              fill={isSelected ? '#1d4ed8' : '#3b82f6'}
+                              opacity={isAnySelected && !isSelected ? 0.35 : 1}
+                              className="cursor-pointer transition-all duration-200"
+                              style={{ cursor: 'pointer' }}
+                            />
+                          );
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-400 text-xs">
+                    Sin áreas registradas
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Action Bar & Filters */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-center">
         {/* Search */}
@@ -1117,388 +1634,6 @@ export const FiveSCardsPage: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* KPI Dashboard Section (Footer) */}
-      {(cards.length > 0 || visibleCards.length > 0) && (
-        <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 md:p-8 mt-8">
-          {/* Header con botón para modo presentación */}
-          <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100 flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
-                <BarIcon size={24} />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Indicadores de Gestión</h3>
-                <p className="text-sm text-slate-500">
-                  Haz clic en cualquier estado o área para filtrar las tarjetas
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {(statusFilter !== 'Todos' || filterLocation) && (
-                <button
-                  onClick={() => {
-                    setStatusFilter('Todos');
-                    setFilterLocation('');
-                  }}
-                  className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
-                >
-                  Restablecer Gráficos
-                </button>
-              )}
-
-              <button
-                onClick={() => setIsPresentationMode(true)}
-                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-semibold transition-all text-sm shadow-sm hover:shadow active:scale-95"
-              >
-                <Maximize2 size={16} className="text-slate-600" />
-                <span>Vista Presentación (PPT 16:9)</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Stats Cards Column */}
-            <div className="grid grid-cols-2 gap-4 content-start">
-              <StatCard
-                title="Total Tarjetas"
-                value={kpiData.total}
-                variant="blue"
-                type="light"
-              />
-              <StatCard
-                title="Cumplimiento"
-                value={`${kpiData.completionRate}%`}
-                variant="green"
-                type="light"
-              />
-
-              <div className="col-span-2">
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-emerald-100 relative overflow-hidden">
-                  <div className="flex items-center gap-2 mb-6">
-                    <div className="p-1.5 bg-emerald-100 rounded-full text-emerald-600">
-                      <CheckCircle size={16} />
-                    </div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      PROMEDIO DE CIERRE DE TARJETAS 5S
-                    </h4>
-                  </div>
-
-                  {/* Chart Circle */}
-                  <div className="flex flex-col items-center justify-center relative mb-6">
-                    <div className="relative w-40 h-40">
-                      <ResponsiveContainer width="100%" height="100%" minWidth={10} minHeight={10}>
-                        <PieChart>
-                          <Pie
-                            data={[{ value: 1 }]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={70}
-                            startAngle={90}
-                            endAngle={-270}
-                            fill="#ecfdf5"
-                            stroke="none"
-                            dataKey="value"
-                            isAnimationActive={false}
-                          />
-                          <Pie
-                            data={[
-                              { value: parseFloat(String(kpiData.closureStats?.avg || 0)) },
-                              {
-                                value: Math.max(
-                                  0,
-                                  parseFloat(String(kpiData.closureStats?.max || 1)) -
-                                    parseFloat(String(kpiData.closureStats?.avg || 0))
-                                ),
-                              },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={70}
-                            startAngle={90}
-                            endAngle={-270}
-                            dataKey="value"
-                            stroke="none"
-                          >
-                            <Cell fill="#10b981" />
-                            <Cell fill="transparent" />
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-3xl font-black text-slate-800 tracking-tight leading-none">
-                          {kpiData.closureStats?.avg || '0'}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                          Días Promedio
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Min / Max Footer */}
-                  <div className="flex justify-between items-center bg-slate-50 border border-slate-100 rounded-lg p-2.5 px-4 text-xs">
-                    <div className="text-center">
-                      <span className="text-slate-400 font-bold uppercase text-[9px] block">
-                        Más Rápida
-                      </span>
-                      <span className="text-emerald-600 font-black text-sm">
-                        {kpiData.closureStats?.min || '0'} días
-                      </span>
-                    </div>
-                    <div className="h-6 w-px bg-slate-200"></div>
-                    <div className="text-center">
-                      <span className="text-slate-400 font-bold uppercase text-[9px] block">
-                        Más Lenta
-                      </span>
-                      <span className="text-rose-600 font-black text-sm">
-                        {kpiData.closureStats?.max || '0'} días
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Column 2: Status Distribution (Interactive) */}
-            <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 flex flex-col justify-between transition-all hover:border-blue-200">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Activity size={14} className="text-blue-500" /> Distribución por Estado
-                </h4>
-                {statusFilter !== 'Todos' ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStatusFilterToggle(statusFilter);
-                    }}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 hover:bg-rose-100 hover:text-rose-700 transition-colors shadow-xs"
-                    title="Quitar filtro de estado"
-                  >
-                    <span>Filtro: {statusFilter}</span>
-                    <X size={10} />
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-slate-400 font-medium">Clic para filtrar</span>
-                )}
-              </div>
-
-              <div className="flex-1 min-h-[200px] relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={kpiData.statusData.filter((d) => d.value > 0)}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      paddingAngle={4}
-                      dataKey="value"
-                      stroke="#ffffff"
-                      strokeWidth={2}
-                      cursor="pointer"
-                      onClick={(entry: any) => {
-                        if (entry && entry.name) {
-                          handleStatusFilterToggle(entry.name);
-                        }
-                      }}
-                    >
-                      {kpiData.statusData.filter((d) => d.value > 0).map((entry, index) => {
-                        const isSelected =
-                          (entry.name === 'En Progreso' && (statusFilter === 'En Progreso' || statusFilter === 'En Proceso')) ||
-                          statusFilter === entry.name;
-                        const isAnyStatusActive = statusFilter !== 'Todos';
-
-                        return (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={entry.color}
-                            opacity={isAnyStatusActive && !isSelected ? 0.35 : 1}
-                            stroke={isSelected ? '#0f172a' : '#ffffff'}
-                            strokeWidth={isSelected ? 3 : 2}
-                            style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
-                          />
-                        );
-                      })}
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(value: any, name: any) => [`${value} tarjetas`, `${name} (clic para filtrar)`]}
-                      contentStyle={{
-                        borderRadius: '8px',
-                        border: 'none',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                        fontSize: '11px',
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Botones / Leyenda interactiva */}
-              <div className="flex justify-center items-center gap-2 mt-2 flex-wrap">
-                {kpiData.statusData.map((s) => {
-                  const isSelected =
-                    (s.name === 'En Progreso' && (statusFilter === 'En Progreso' || statusFilter === 'En Proceso')) ||
-                    statusFilter === s.name;
-                  return (
-                    <button
-                      key={s.name}
-                      onClick={() => handleStatusFilterToggle(s.name)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
-                        isSelected
-                          ? 'ring-2 ring-slate-800 shadow-sm bg-slate-900 text-white'
-                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                      }`}
-                      title={`Filtrar por ${s.name}`}
-                    >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
-                        style={{ backgroundColor: s.color }}
-                      />
-                      <span>{s.name}</span>
-                      <span
-                        className={`text-[10px] font-normal ${
-                          isSelected ? 'text-slate-300' : 'text-slate-400'
-                        }`}
-                      >
-                        ({s.value})
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Column 3: Top Areas (Interactive) */}
-            <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 flex flex-col justify-between transition-all hover:border-blue-200">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <BarIcon size={14} className="text-blue-500" /> Top Áreas con Hallazgos
-                </h4>
-                {filterLocation ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLocationFilterToggle(filterLocation);
-                    }}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 hover:bg-rose-100 hover:text-rose-700 transition-colors shadow-xs"
-                    title="Quitar filtro de área"
-                  >
-                    <span>Filtro: {filterLocation}</span>
-                    <X size={10} />
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-slate-400 font-medium">Clic para filtrar</span>
-                )}
-              </div>
-
-              <div className="flex-1 min-h-[220px] relative">
-                {kpiData.locationData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={kpiData.locationData}
-                      layout="vertical"
-                      margin={{ top: 5, right: 15, left: 10, bottom: 5 }}
-                      onClick={(state: any) => {
-                        if (state && state.activePayload && state.activePayload.length > 0) {
-                          const areaName = state.activePayload[0].payload.name;
-                          handleLocationFilterToggle(areaName);
-                        }
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                      <XAxis type="number" hide />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        width={95}
-                        tick={(props: any) => {
-                          const { x, y, payload } = props;
-                          const isSelected = filterLocation === payload.value;
-                          return (
-                            <g
-                              transform={`translate(${x},${y})`}
-                              style={{ cursor: 'pointer' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleLocationFilterToggle(payload.value);
-                              }}
-                            >
-                              <title>{`Filtrar por ${payload.value}`}</title>
-                              <text
-                                x={0}
-                                y={0}
-                                dy={4}
-                                textAnchor="end"
-                                fill={isSelected ? '#1d4ed8' : '#475569'}
-                                fontSize={10}
-                                fontWeight={isSelected ? 'bold' : '600'}
-                                className="hover:underline transition-colors"
-                              >
-                                {payload.value.length > 14
-                                  ? `${payload.value.substring(0, 12)}…`
-                                  : payload.value}
-                              </text>
-                            </g>
-                          );
-                        }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <RechartsTooltip
-                        cursor={{ fill: '#f1f5f9' }}
-                        formatter={(value: any, name: any, item: any) => [
-                          `${value} hallazgos`,
-                          `${item?.payload?.name || name} (clic para filtrar)`,
-                        ]}
-                        contentStyle={{
-                          borderRadius: '8px',
-                          border: 'none',
-                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                          fontSize: '11px',
-                        }}
-                      />
-                      <Bar
-                        dataKey="count"
-                        radius={[0, 4, 4, 0]}
-                        barSize={18}
-                        cursor="pointer"
-                        onClick={(entry: any) => {
-                          if (entry && entry.name) {
-                            handleLocationFilterToggle(entry.name);
-                          }
-                        }}
-                      >
-                        {kpiData.locationData.map((entry, index) => {
-                          const isSelected = filterLocation === entry.name;
-                          const isAnySelected = Boolean(filterLocation);
-                          return (
-                            <Cell
-                              key={`bar-${index}`}
-                              fill={isSelected ? '#1d4ed8' : '#3b82f6'}
-                              opacity={isAnySelected && !isSelected ? 0.35 : 1}
-                              className="cursor-pointer transition-all duration-200"
-                              style={{ cursor: 'pointer' }}
-                            />
-                          );
-                        })}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-slate-400 text-xs">
-                    Sin áreas registradas
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Card Detail/Edit Modal */}
       <FiveSCardModal
