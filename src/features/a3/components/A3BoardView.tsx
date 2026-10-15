@@ -16,8 +16,10 @@ import {
   ShieldCheck,
   ListTodo,
   Sparkles,
+  Camera,
 } from 'lucide-react';
 import type { A3Project, A3ActionPlanItem, A3FollowUpConfig } from '../../../types';
+import { ImageLightbox } from '../../../components/common/ImageLightbox';
 import A3Ishikawa from './A3Ishikawa';
 import A3FiveWhys from './A3FiveWhys';
 import A3Pareto from './A3Pareto';
@@ -32,6 +34,7 @@ interface A3BoardViewProps {
 
 export const A3BoardView: React.FC<A3BoardViewProps> = ({ a3, onUpdate, users = [] }) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [boardLightboxImage, setBoardLightboxImage] = useState<string | null>(null);
 
   if (!a3) return null;
 
@@ -280,7 +283,26 @@ export const A3BoardView: React.FC<A3BoardViewProps> = ({ a3, onUpdate, users = 
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {(() => {
+                        const evidencePhotos = (act.image_urls || act.images || []).filter(Boolean);
+                        if (evidencePhotos.length === 0) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBoardLightboxImage(evidencePhotos[0]);
+                            }}
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 flex items-center gap-1 transition-colors cursor-pointer"
+                            title={`Ver ${evidencePhotos.length} fotos de prueba de trabajo realizado`}
+                          >
+                            <Camera size={11} className="text-brand-600" />
+                            <span>{evidencePhotos.length}</span>
+                          </button>
+                        );
+                      })()}
+
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           act.status === 'completed'
@@ -452,6 +474,13 @@ export const A3BoardView: React.FC<A3BoardViewProps> = ({ a3, onUpdate, users = 
           </div>
         </div>
       )}
+
+      {/* Lightbox para fotos de evidencia */}
+      <ImageLightbox
+        imageUrl={boardLightboxImage}
+        onClose={() => setBoardLightboxImage(null)}
+        altText="Prueba de trabajo realizado"
+      />
     </div>
   );
 };

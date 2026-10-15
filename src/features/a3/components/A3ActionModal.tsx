@@ -17,8 +17,16 @@ import {
   Save,
   AlertCircle,
   Wand2,
+  Camera,
+  Image as ImageIcon,
+  UploadCloud,
+  ZoomIn,
+  Link as LinkIcon,
+  Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabase } from '../../../lib/supabase';
+import { ImageLightbox } from '../../../components/common/ImageLightbox';
 import type { A3ActionPlanItem, A3Subtask, A3PlanGroup } from '../../../types';
 import {
   improveLeanActionWording,
@@ -74,6 +82,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
     status: 'pending',
     subtasks: [],
     countermeasures: [],
+    image_urls: [],
   });
 
   const [initialData, setInitialData] = useState<A3ActionPlanItem | null>(null);
@@ -81,6 +90,12 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
   const [isPolishingWording, setIsPolishingWording] = useState(false);
   const [polishingField, setPolishingField] = useState<'what' | 'why' | 'how' | null>(null);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
+
+  // Estados para subida y visualización de fotos de prueba de trabajo realizado
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [manualUrl, setManualUrl] = useState('');
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newSubtaskWho, setNewSubtaskWho] = useState('');
@@ -96,6 +111,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
         when: actionToEdit.when || actionToEdit.date || new Date().toISOString().split('T')[0],
         planId: actionToEdit.planId || activePlanId,
         subtasks: actionToEdit.subtasks ? JSON.parse(JSON.stringify(actionToEdit.subtasks)) : [],
+        image_urls: actionToEdit.image_urls || actionToEdit.images || [],
       };
       setFormData(init);
       setInitialData(init);
@@ -113,6 +129,7 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
         status: 'pending',
         subtasks: [],
         countermeasures: [],
+        image_urls: [],
       };
       setFormData(init);
       setInitialData(init);
@@ -120,9 +137,190 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
     setNewSubtaskTitle('');
     setNewSubtaskWho('');
     setNewSubtaskDate('');
+    setShowUrlInput(false);
+    setManualUrl('');
+    setZoomImageUrl(null);
   }, [actionToEdit, activePlanId, isOpen]);
 
   if (!isOpen) return null;
+
+  // Helper: Comprimir imagen en el cliente para subida ultra rápida
+  const compressImage = async (
+    file: File,
+    maxDim = 1280,
+    quality = 0.82
+  ): Promise<{ file: File; fallbackDataUrl: string }> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () =>
+          resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File(
+                  [blob],
+                  file.name.replace(/\.[^/.]+$/, '.jpg'),
+                  { type: 'image/jpeg', lastModified: Date.now() }
+                );
+                resolve({ file: compressedFile, fallbackDataUrl: dataUrl });
+              } else {
+                resolve({ file, fallbackDataUrl: dataUrl });
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        } else {
+          const reader = new FileReader();
+          reader.onloadend = () =>
+            resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
+          reader.readAsDataURL(file);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        const reader = new FileReader();
+        reader.onloadend = () =>
+          resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
+        reader.readAsDataURL(file);
+      };
+      img.src = objectUrl;
+    });
+  };
+
+  // Upload handler para fotos de prueba de trabajo realizado
+  const handleUploadEvidencePhotos = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    setIsUploadingImage(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const rawFile = files[i];
+        try {
+          const { file: fileToUpload, fallbackDataUrl } = await compressImage(rawFile);
+          const fileExt = fileToUpload.name ? fileToUpload.name.split('.').pop() : 'jpg';
+          const fileName = `a3-evidence-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+          const filePath = `evidence/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('five-s-images')
+            .upload(filePath, fileToUpload, { cacheControl: '31536000', upsert: true });
+
+          if (!uploadError) {
+            const { data } = supabase.storage.from('five-s-images').getPublicUrl(filePath);
+            if (data?.publicUrl) {
+              uploadedUrls.push(data.publicUrl);
+              continue;
+            }
+          }
+
+          // Fallback al bucket 'images' si five-s-images no está configurado
+          const { error: fallbackErr } = await supabase.storage
+            .from('images')
+            .upload(`a3/${filePath}`, fileToUpload, { cacheControl: '31536000', upsert: true });
+
+          if (!fallbackErr) {
+            const { data } = supabase.storage.from('images').getPublicUrl(`a3/${filePath}`);
+            if (data?.publicUrl) {
+              uploadedUrls.push(data.publicUrl);
+              continue;
+            }
+          }
+
+          // Si falla storage remoto, usar dataUrl comprimido
+          if (fallbackDataUrl) {
+            uploadedUrls.push(fallbackDataUrl);
+          }
+        } catch (fileErr) {
+          console.error('Error procesando imagen de evidencia:', fileErr);
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        setFormData((prev) => {
+          const combined = [...(prev.image_urls || []), ...uploadedUrls];
+          return {
+            ...prev,
+            image_urls: combined,
+            images: combined,
+          };
+        });
+        toast.success(
+          uploadedUrls.length === 1
+            ? 'Foto de prueba de trabajo cargada'
+            : `¡${uploadedUrls.length} fotos de prueba cargadas!`
+        );
+      }
+    } catch (err: any) {
+      console.error('Error subiendo fotos de evidencia:', err);
+      toast.error('Error al subir fotos de evidencia');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleRemoveEvidencePhoto = (urlToRemove: string) => {
+    setFormData((prev) => {
+      const updated = (prev.image_urls || []).filter((u) => u !== urlToRemove);
+      return {
+        ...prev,
+        image_urls: updated,
+        images: updated,
+      };
+    });
+  };
+
+  const handleAddPhotoByUrl = () => {
+    const trimmed = manualUrl.trim();
+    if (!trimmed) return;
+    if (
+      !trimmed.startsWith('http://') &&
+      !trimmed.startsWith('https://') &&
+      !trimmed.startsWith('data:image')
+    ) {
+      toast.error('Ingresa una URL válida (ej: https://...)');
+      return;
+    }
+    setFormData((prev) => {
+      const combined = [...(prev.image_urls || []), trimmed];
+      return {
+        ...prev,
+        image_urls: combined,
+        images: combined,
+      };
+    });
+    setManualUrl('');
+    setShowUrlInput(false);
+    toast.success('Foto añadida por enlace');
+  };
 
   // Comprueba si el usuario tiene cambios sin guardar
   const isFormDirty = (): boolean => {
@@ -136,6 +334,14 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
     if (formData.planId !== initialData.planId) return true;
     if (formData.status !== initialData.status) return true;
     if (newSubtaskTitle.trim().length > 0) return true;
+
+    // Comparar fotos de evidencia
+    const currentImgs = formData.image_urls || [];
+    const initImgs = initialData.image_urls || [];
+    if (currentImgs.length !== initImgs.length) return true;
+    for (let i = 0; i < currentImgs.length; i++) {
+      if (currentImgs[i] !== initImgs[i]) return true;
+    }
 
     // Subtareas agregadas o removidas
     const currentSubs = formData.subtasks || [];
@@ -223,6 +429,8 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
       responsible: formData.who,
       date: formData.when,
       progress,
+      image_urls: formData.image_urls || [],
+      images: formData.image_urls || [],
     });
     setShowConfirmClose(false);
     onClose();
@@ -783,6 +991,152 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
             </div>
           </div>
 
+          {/* Section: Prueba de Trabajo Realizado (Fotos de Evidencia) */}
+          <div className="space-y-3 pt-3 border-t border-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <label className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                  <Camera size={15} className="text-brand-600" />
+                  <span>Prueba de Trabajo Realizado (Fotos de Evidencia)</span>
+                  <span className="text-[10px] font-semibold text-slate-400 lowercase">(opcional)</span>
+                </label>
+                <span className="text-[11px] text-slate-500">
+                  Sube fotos como evidencia del trabajo implementado, antes/después o validación en terreno
+                </span>
+              </div>
+
+              {/* Botón para alternar input de URL directa si se desea */}
+              <button
+                type="button"
+                onClick={() => setShowUrlInput((prev) => !prev)}
+                className="text-[11px] font-semibold text-slate-600 hover:text-brand-700 bg-slate-100 hover:bg-brand-50 px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1 transition-colors"
+                title="Añadir foto mediante enlace URL directo"
+              >
+                <LinkIcon size={12} />
+                <span>{showUrlInput ? 'Ocultar enlace URL' : 'Añadir por URL'}</span>
+              </button>
+            </div>
+
+            {/* Input para URL manual (opcional) */}
+            {showUrlInput && (
+              <div className="flex gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200 animate-fadeIn">
+                <input
+                  type="url"
+                  placeholder="https://... enlace directo a imagen (Drive, SharePoint, CDN)"
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddPhotoByUrl();
+                    }
+                  }}
+                  className="flex-1 px-3 py-1.5 text-xs font-medium text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddPhotoByUrl}
+                  disabled={!manualUrl.trim()}
+                  className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors shrink-0"
+                >
+                  Adjuntar
+                </button>
+              </div>
+            )}
+
+            {/* Zona Dropzone / Selector de archivos */}
+            <div className="relative border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 bg-slate-50/60 hover:bg-brand-50/20 transition-all text-center">
+              <input
+                type="file"
+                id="a3-evidence-upload-input"
+                multiple
+                accept="image/*"
+                disabled={isUploadingImage}
+                onChange={(e) => {
+                  if (e.target.files) {
+                    handleUploadEvidencePhotos(e.target.files);
+                    e.target.value = '';
+                  }
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              />
+
+              <div className="flex flex-col items-center justify-center gap-1.5 pointer-events-none">
+                {isUploadingImage ? (
+                  <>
+                    <Loader2 size={24} className="text-brand-600 animate-spin" />
+                    <span className="text-xs font-bold text-slate-700">
+                      Subiendo y optimizando fotos de evidencia...
+                    </span>
+                    <span className="text-[11px] text-slate-400">Comprimiendo imagen en cliente para alta velocidad</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-10 h-10 rounded-xl bg-white text-brand-600 flex items-center justify-center shadow-xs border border-slate-200">
+                      <UploadCloud size={20} />
+                    </div>
+                    <div className="text-xs font-bold text-slate-700">
+                      <span className="text-brand-600 hover:underline">Haz clic para seleccionar fotos</span> o arrastra aquí
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      Formatos soportados: JPG, PNG, WEBP • Captura desde móvil o cámara disponible
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Grid de miniaturas de evidencia */}
+            {(formData.image_urls || []).length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                  <span>Fotos adjuntas ({(formData.image_urls || []).length}):</span>
+                  <span className="text-slate-400">Haz clic en la foto para ampliarla</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {(formData.image_urls || []).map((imgUrl, imgIdx) => (
+                    <div
+                      key={imgIdx}
+                      className="group relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 aspect-video shadow-xs"
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Evidencia ${imgIdx + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+
+                      {/* Overlay con acciones */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setZoomImageUrl(imgUrl)}
+                          className="p-1.5 rounded-lg bg-white/90 hover:bg-white text-slate-800 shadow-sm transition-colors"
+                          title="Ampliar foto"
+                        >
+                          <ZoomIn size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEvidencePhoto(imgUrl)}
+                          className="p-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition-colors"
+                          title="Eliminar foto"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      {/* Tag numérico */}
+                      <span className="absolute bottom-1 left-1.5 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-xs text-[10px] font-black text-white pointer-events-none">
+                        #{imgIdx + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Modal Footer Controls */}
           <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-200">
             <span className="text-[11px] font-medium text-emerald-600 flex items-center gap-1.5">
@@ -851,6 +1205,9 @@ export const A3ActionModal: React.FC<A3ActionModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Modal Lightbox para ampliar fotos de evidencia */}
+        <ImageLightbox imageUrl={zoomImageUrl} onClose={() => setZoomImageUrl(null)} />
       </div>
     </div>,
     document.body

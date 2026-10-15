@@ -21,6 +21,7 @@ import {
   UserCheck,
   Filter,
   Eye,
+  Camera,
 } from 'lucide-react';
 import type { TaskItem, CollaboratorPerformance } from '../ResponsablesPage';
 
@@ -498,6 +499,24 @@ export const ResponsablesKanbanBoard: React.FC<ResponsablesKanbanBoardProps> = (
                           </div>
 
                           <div className="flex items-center gap-1.5">
+                            {(() => {
+                              const evidenceCount = (
+                                task.rawTask?.image_urls ||
+                                task.rawTask?.images ||
+                                (task.rawTask?.image_url ? [task.rawTask.image_url] : [])
+                              ).filter(Boolean).length;
+                              if (evidenceCount === 0) return null;
+                              return (
+                                <span
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shrink-0"
+                                  title={`${evidenceCount} foto(s) de prueba de trabajo adjunta(s)`}
+                                >
+                                  <Camera size={10} className="text-amber-600" />
+                                  <span>{evidenceCount}</span>
+                                </span>
+                              );
+                            })()}
+
                             {formattedDate && (
                               <span
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${

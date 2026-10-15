@@ -27,10 +27,14 @@ import {
   X,
   FileSpreadsheet,
   Mail,
+  Camera,
+  ZoomIn,
+  Image as ImageIcon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { A3ActionPlanItem, A3Subtask, A3PlanGroup } from '../../../types';
 import A3ActionModal from './A3ActionModal';
+import { ImageLightbox } from '../../../components/common/ImageLightbox';
 import { generateLeanSubtasks } from '../../../services/geminiService';
 import { COMMON_SUBTASK_VERBS, formatWithActionVerb, startsWithActionVerb } from '../utils/leanActionVerbs';
 
@@ -113,6 +117,7 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAction, setEditingAction] = useState<A3ActionPlanItem | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   // New Plan Creation Modal
   const [isNewPlanModalOpen, setIsNewPlanModalOpen] = useState(false);
@@ -130,6 +135,8 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
       when: a.when || a.date || '',
       status: a.status || 'pending',
       subtasks: a.subtasks || [],
+      image_urls: a.image_urls || a.images || [],
+      images: a.image_urls || a.images || [],
       progress:
         a.progress !== undefined
           ? a.progress
@@ -907,24 +914,77 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
                         </p>
                       )}
 
-                      {/* Subtasks Accordion Toggle button */}
-                      <button
-                        type="button"
-                        onClick={() => toggleSubtasks(action.id)}
-                        className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
-                      >
-                        {isSubtasksOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        <span>Subtareas Operativas</span>
-                        <span
-                          className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                            completedCount === subtasks.length && hasSubtasks
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-slate-200 text-slate-600'
-                          }`}
+                      {/* Subtasks Accordion Toggle button & Evidence Photos Preview */}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => toggleSubtasks(action.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
                         >
-                          {completedCount}/{subtasks.length}
-                        </span>
-                      </button>
+                          {isSubtasksOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          <span>Subtareas Operativas</span>
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                              completedCount === subtasks.length && hasSubtasks
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {completedCount}/{subtasks.length}
+                          </span>
+                        </button>
+
+                        {/* Evidence Photos Badge & Thumbnails */}
+                        {(() => {
+                          const evidencePhotos = (action.image_urls || action.images || []).filter(Boolean);
+                          if (evidencePhotos.length === 0) return null;
+
+                          return (
+                            <div className="flex items-center gap-1.5 bg-brand-50/80 border border-brand-200/90 px-2 py-0.5 rounded-lg shadow-2xs">
+                              <span className="text-[10px] font-bold text-brand-700 uppercase flex items-center gap-1">
+                                <Camera size={12} className="text-brand-600" />
+                                <span>Evidencia ({evidencePhotos.length}):</span>
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {evidencePhotos.slice(0, 3).map((url, pIdx) => (
+                                  <button
+                                    key={pIdx}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLightboxImage(url);
+                                    }}
+                                    className="relative group w-6 h-6 rounded-md overflow-hidden border border-brand-300 hover:border-brand-600 shadow-2xs transition-transform hover:scale-110 shrink-0"
+                                    title="Click para ampliar prueba de trabajo realizado"
+                                  >
+                                    <img
+                                      src={url}
+                                      alt={`Evidencia ${pIdx + 1}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                      <ZoomIn size={10} className="text-white" />
+                                    </div>
+                                  </button>
+                                ))}
+                                {evidencePhotos.length > 3 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLightboxImage(evidencePhotos[3]);
+                                    }}
+                                    className="w-6 h-6 rounded-md bg-brand-100 text-brand-800 text-[10px] font-bold flex items-center justify-center hover:bg-brand-200 transition-colors"
+                                    title={`Ver las ${evidencePhotos.length} fotos`}
+                                  >
+                                    +{evidencePhotos.length - 3}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
 
                     {/* Middle: 5W2H Info Pills (Who, When, Where, How, How Much) */}
@@ -1272,6 +1332,9 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
           </div>
         </div>
       )}
+
+      {/* Lightbox para ampliar pruebas de trabajo realizado */}
+      <ImageLightbox imageUrl={lightboxImage} onClose={() => setLightboxImage(null)} />
     </div>
   );
 };

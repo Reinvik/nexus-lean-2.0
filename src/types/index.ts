@@ -173,6 +173,10 @@ export interface A3ActionPlanItem {
   countermeasure?: string;
   notes?: string;
   
+  // Evidencia fotográfica / Prueba de trabajo realizado (Opcional)
+  image_urls?: string[];
+  images?: string[];
+
   // Backwards compatibility aliases
   activity?: string;
   responsible?: string;

@@ -968,6 +968,8 @@ export const ResponsablesPage: React.FC = () => {
               status: updatedTask.status !== undefined ? updatedTask.status : act.status,
               progress: typeof updatedTask.progress === 'number' ? updatedTask.progress : act.progress,
               subtasks: updatedTask.subtasks || act.subtasks,
+              image_urls: (updatedTask.rawTask as any)?.image_urls || act.image_urls,
+              images: (updatedTask.rawTask as any)?.images || act.images,
             };
           });
 
