@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { auditService } from './services/auditService';
-import type { Audit5S, Audit5SEntry } from '../../types';
+import { auditPlanService } from './services/auditPlanService';
+import type { Audit5S, Audit5SEntry, AuditPlanItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import StatCard from '../../components/common/StatCard';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import AuditRadarChart from './components/AuditRadarChart';
 import AuditEvaluationModal from './components/AuditEvaluationModal';
+import AuditPlanManager from './components/AuditPlanManager';
 import { formatDate } from '../../lib/utils';
 import {
   ShieldCheck,
@@ -14,6 +17,8 @@ import {
   RefreshCw,
   Award,
   Calendar,
+  CalendarCheck,
+  CalendarDays,
   User,
   Trash2,
   TrendingUp,
@@ -29,6 +34,8 @@ import {
   AlertCircle,
   X,
   Target,
+  Filter,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   BarChart,
@@ -62,11 +69,44 @@ export const AuditsPage: React.FC = () => {
   const effectiveCompanyId = globalFilterCompanyId || activeCompanyId;
   const canSwitchCompanies = Boolean(user?.isGlobalAdmin);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'plan' ? 'plan' : 'metrics';
+
+  // Sub-tab Navigation: 'metrics' (Resultados & Gráficos) vs 'plan' (Plan de Auditoría)
+  const [activeTab, setActiveTab] = useState<'metrics' | 'plan'>(initialTab);
+  const [planToExecute, setPlanToExecute] = useState<AuditPlanItem | null>(null);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'plan') {
+      setActiveTab('plan');
+    } else if (tabParam === 'metrics') {
+      setActiveTab('metrics');
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: 'metrics' | 'plan') => {
+    setActiveTab(tab);
+    setSearchParams(tab === 'plan' ? { tab: 'plan' } : {});
+  };
+
   const [audits, setAudits] = useState<Audit5S[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [scoreFilter, setScoreFilter] = useState<'all' | 'high' | 'mid' | 'low'>('all');
+
+  // Filtros Temporales para Gráficos y Métricas: Fecha, Año, Mes
+  const [filterYear, setFilterYear] = useState<string>('all');
+  const [filterMonth, setFilterMonth] = useState<string>('all');
+  const [timePreset, setTimePreset] = useState<'all' | 'this_year' | 'this_month' | 'last_month' | 'last_90' | 'custom'>('all');
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+
+  const MONTH_NAMES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
 
   const loadAudits = useCallback(async () => {
     setLoading(true);
@@ -85,6 +125,103 @@ export const AuditsPage: React.FC = () => {
   }, [loadAudits]);
 
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
+
+  // Años únicos presentes en el histórico de auditorías
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    const currentYear = new Date().getFullYear().toString();
+    years.add(currentYear);
+    audits.forEach((a) => {
+      const d = a.audit_date || a.created_at;
+      if (d) {
+        const y = d.substring(0, 4);
+        if (y && !isNaN(Number(y))) years.add(y);
+      }
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [audits]);
+
+  // Manejo de cambios rápidos de período
+  const handleApplyTimePreset = (preset: 'all' | 'this_year' | 'this_month' | 'last_month' | 'last_90' | 'custom') => {
+    setTimePreset(preset);
+    const now = new Date();
+    const currYear = now.getFullYear().toString();
+    const currMonth = now.getMonth().toString();
+
+    if (preset === 'all') {
+      setFilterYear('all');
+      setFilterMonth('all');
+      setFilterStartDate('');
+      setFilterEndDate('');
+    } else if (preset === 'this_year') {
+      setFilterYear(currYear);
+      setFilterMonth('all');
+      setFilterStartDate('');
+      setFilterEndDate('');
+    } else if (preset === 'this_month') {
+      setFilterYear(currYear);
+      setFilterMonth(currMonth);
+      setFilterStartDate('');
+      setFilterEndDate('');
+    } else if (preset === 'last_month') {
+      const prevM = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+      const prevY = now.getMonth() === 0 ? (now.getFullYear() - 1).toString() : currYear;
+      setFilterYear(prevY);
+      setFilterMonth(prevM.toString());
+      setFilterStartDate('');
+      setFilterEndDate('');
+    } else if (preset === 'last_90') {
+      setFilterYear('all');
+      setFilterMonth('all');
+      const start90 = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+      const endToday = now.toISOString().split('T')[0];
+      setFilterStartDate(start90);
+      setFilterEndDate(endToday);
+    }
+  };
+
+  // Reiniciar filtros temporales
+  const handleResetTimeFilter = () => {
+    setTimePreset('all');
+    setFilterYear('all');
+    setFilterMonth('all');
+    setFilterStartDate('');
+    setFilterEndDate('');
+  };
+
+  const isTimeFilterActive = filterYear !== 'all' || filterMonth !== 'all' || Boolean(filterStartDate) || Boolean(filterEndDate) || timePreset !== 'all';
+
+  // Auditorías filtradas por Año, Mes y Rango de Fecha
+  const temporalFilteredAudits = useMemo(() => {
+    return audits.filter((audit) => {
+      const rawDate = audit.audit_date || audit.created_at;
+      if (!rawDate) return true;
+
+      // Filtro de rango de fechas explícito
+      if (filterStartDate && rawDate < filterStartDate) return false;
+      if (filterEndDate && rawDate > filterEndDate) return false;
+
+      // Filtro de año
+      if (filterYear !== 'all') {
+        const itemYear = rawDate.substring(0, 4);
+        if (itemYear !== filterYear) return false;
+      }
+
+      // Filtro de mes
+      if (filterMonth !== 'all') {
+        try {
+          const itemDate = new Date(rawDate.includes('T') ? rawDate : `${rawDate}T00:00:00`);
+          if (!isNaN(itemDate.getTime()) && String(itemDate.getMonth()) !== filterMonth) {
+            return false;
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
+
+      return true;
+    });
+  }, [audits, filterYear, filterMonth, filterStartDate, filterEndDate]);
 
   // Helper to calculate radar scores for a single audit
   const getAuditRadarScores = useCallback((audit: Audit5S) => {
@@ -124,13 +261,14 @@ export const AuditsPage: React.FC = () => {
     return { s1: norm, s2: norm, s3: norm, s4: norm, s5: norm };
   }, []);
 
-  // Aggregate Radar Scores across audits
+  // Aggregate Radar Scores across temporalFilteredAudits
   const averageRadarScores = useMemo(() => {
-    if (audits.length === 0) {
+    const dataset = temporalFilteredAudits.length > 0 ? temporalFilteredAudits : audits;
+    if (dataset.length === 0) {
       return { s1: 75, s2: 60, s3: 80, s4: 65, s5: 70 }; // Baseline visual placeholder
     }
 
-    const hasAnyOver4 = audits.some((a) =>
+    const hasAnyOver4 = dataset.some((a) =>
       a.entries?.some((e) => (e.score || 0) > 4)
     );
     const maxPerQuestion = hasAnyOver4 ? 5 : 4;
@@ -138,7 +276,7 @@ export const AuditsPage: React.FC = () => {
     let s1 = 0, s2 = 0, s3 = 0, s4 = 0, s5 = 0;
     let counts = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 };
 
-    audits.forEach((a) => {
+    dataset.forEach((a) => {
       if (a.entries && a.entries.length > 0) {
         a.entries.forEach((e) => {
           const sec = e.section?.toLowerCase() as 's1' | 's2' | 's3' | 's4' | 's5';
@@ -163,7 +301,7 @@ export const AuditsPage: React.FC = () => {
       s4: counts.s4 > 0 ? Math.round(s4 / counts.s4) : 60,
       s5: counts.s5 > 0 ? Math.round(s5 / counts.s5) : 75,
     };
-  }, [audits]);
+  }, [temporalFilteredAudits, audits]);
 
   // Selected audit (if any)
   const selectedAudit = useMemo(() => {
@@ -179,16 +317,16 @@ export const AuditsPage: React.FC = () => {
     return averageRadarScores;
   }, [selectedAudit, averageRadarScores, getAuditRadarScores]);
 
-  // General KPIs with normalized scores
+  // General KPIs with normalized scores (derived from temporalFilteredAudits)
   const stats = useMemo(() => {
-    const total = audits.length;
+    const total = temporalFilteredAudits.length;
     const avgScore =
       total > 0
         ? Math.round(
-            audits.reduce((acc, a) => acc + getNormalizedScore(a.total_score), 0) / total
+            temporalFilteredAudits.reduce((acc, a) => acc + getNormalizedScore(a.total_score), 0) / total
           )
         : 0;
-    const compliant = audits.filter((a) => getNormalizedScore(a.total_score) >= 80).length;
+    const compliant = temporalFilteredAudits.filter((a) => getNormalizedScore(a.total_score) >= 80).length;
 
     return {
       total,
@@ -196,11 +334,11 @@ export const AuditsPage: React.FC = () => {
       compliant,
       complianceRate: total > 0 ? Math.round((compliant / total) * 100) : 0,
     };
-  }, [audits]);
+  }, [temporalFilteredAudits]);
 
-  // Filtered audits by search term and score range
+  // Filtered audits by search term and score range from temporalFilteredAudits
   const filteredAudits = useMemo(() => {
-    return audits.filter((audit) => {
+    return temporalFilteredAudits.filter((audit) => {
       const norm = getNormalizedScore(audit.total_score);
       if (scoreFilter === 'high' && norm < 80) return false;
       if (scoreFilter === 'mid' && (norm < 60 || norm >= 80)) return false;
@@ -214,12 +352,12 @@ export const AuditsPage: React.FC = () => {
       }
       return true;
     });
-  }, [audits, searchQuery, scoreFilter]);
+  }, [temporalFilteredAudits, searchQuery, scoreFilter]);
 
-  // 1. Top Auditores por cantidad de auditorías realizadas
+  // 1. Top Auditores por cantidad de auditorías realizadas en el período
   const auditorStats = useMemo(() => {
     const map: Record<string, { count: number; totalScore: number }> = {};
-    audits.forEach((a) => {
+    temporalFilteredAudits.forEach((a) => {
       const name = a.auditor?.trim() || 'Sin asignar';
       const score = getNormalizedScore(a.total_score);
       if (!map[name]) {
@@ -236,12 +374,12 @@ export const AuditsPage: React.FC = () => {
         avgScore: Math.round(data.totalScore / data.count),
       }))
       .sort((a, b) => b.count - a.count);
-  }, [audits]);
+  }, [temporalFilteredAudits]);
 
-  // 2. Top Áreas por nota promedio obtenida
+  // 2. Top Áreas por nota promedio obtenida en el período
   const areaScoreStats = useMemo(() => {
     const map: Record<string, { count: number; totalScore: number }> = {};
-    audits.forEach((a) => {
+    temporalFilteredAudits.forEach((a) => {
       const name = a.area?.trim() || a.title?.trim() || 'Área General';
       const score = getNormalizedScore(a.total_score);
       if (!map[name]) {
@@ -258,12 +396,12 @@ export const AuditsPage: React.FC = () => {
         avgScore: Math.round(data.totalScore / data.count),
       }))
       .sort((a, b) => b.avgScore - a.avgScore);
-  }, [audits]);
+  }, [temporalFilteredAudits]);
 
-  // 3. Evolución Temporal de Calificaciones
+  // 3. Evolución Temporal de Calificaciones en el período
   const trendStats = useMemo(() => {
-    if (audits.length === 0) return [];
-    return [...audits]
+    if (temporalFilteredAudits.length === 0) return [];
+    return [...temporalFilteredAudits]
       .filter((a) => Boolean(a.audit_date))
       .sort((a, b) => new Date(a.audit_date).getTime() - new Date(b.audit_date).getTime())
       .map((a, idx) => ({
@@ -276,22 +414,22 @@ export const AuditsPage: React.FC = () => {
         auditor: a.auditor || 'Sin auditor',
         target: 80,
       }));
-  }, [audits]);
+  }, [temporalFilteredAudits]);
 
-  // 4. Distribución por Nivel de Cumplimiento (Semáforo)
+  // 4. Distribución por Nivel de Cumplimiento en el período
   const complianceDistribution = useMemo(() => {
     let high = 0;
     let mid = 0;
     let low = 0;
 
-    audits.forEach((a) => {
+    temporalFilteredAudits.forEach((a) => {
       const score = getNormalizedScore(a.total_score);
       if (score >= 80) high++;
       else if (score >= 60) mid++;
       else low++;
     });
 
-    const total = audits.length;
+    const total = temporalFilteredAudits.length;
 
     return [
       {
@@ -316,7 +454,7 @@ export const AuditsPage: React.FC = () => {
         color: '#ef4444',
       },
     ];
-  }, [audits]);
+  }, [temporalFilteredAudits]);
 
   const handleAuditorFilterToggle = (auditorName: string) => {
     if (searchQuery.toLowerCase() === auditorName.toLowerCase()) {
@@ -417,37 +555,300 @@ export const AuditsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Evaluaciones"
-          value={stats.total}
-          subtitle="Auditorías registradas"
-          icon={ShieldCheck}
-          accentColor="cyan"
-        />
-        <StatCard
-          title="Puntaje Promedio"
-          value={`${stats.avgScore}%`}
-          subtitle="Calificación general"
-          icon={TrendingUp}
-          accentColor="emerald"
-        />
-        <StatCard
-          title="Áreas Destacadas"
-          value={stats.compliant}
-          subtitle="Puntaje ≥ 80%"
-          icon={Award}
-          accentColor="indigo"
-        />
-        <StatCard
-          title="Tasa Cumplimiento"
-          value={`${stats.complianceRate}%`}
-          subtitle="Estándar alcanzado"
-          icon={ShieldCheck}
-          accentColor="amber"
-        />
+      {/* Mini-Tabs de Navegación: Resultados & Gráficos vs Plan de Auditoría 5S */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => handleTabChange('metrics')}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'metrics'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <BarChart2 size={15} className={activeTab === 'metrics' ? 'text-cyan-400' : 'text-slate-500'} />
+            <span>Resultados & Gráficos 5S</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                activeTab === 'metrics' ? 'bg-cyan-600 text-white' : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              {temporalFilteredAudits.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('plan')}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'plan'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <CalendarCheck size={15} className={activeTab === 'plan' ? 'text-cyan-400' : 'text-slate-500'} />
+            <span>Plan de Auditoría 5S</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                activeTab === 'plan' ? 'bg-cyan-600 text-white' : 'bg-amber-100 text-amber-900 border border-amber-300'
+              }`}
+            >
+              Guía & Checklist
+            </span>
+          </button>
+        </div>
+
+        {activeTab === 'metrics' && (
+          <div className="hidden sm:flex items-center gap-2 px-2 text-xs font-medium text-slate-500">
+            <SlidersHorizontal size={13} className="text-cyan-600" />
+            <span>Filtro temporal activo sobre gráficos</span>
+          </div>
+        )}
       </div>
+
+      {/* Contenido Condicional según Pestaña Activa */}
+      {activeTab === 'plan' ? (
+        <AuditPlanManager
+          companyId={effectiveCompanyId}
+          onExecuteAudit={(planItem) => {
+            setPlanToExecute(planItem);
+            setIsModalOpen(true);
+          }}
+        />
+      ) : (
+        <>
+          {/* Barra de Filtro Temporal: Fecha, Año y Mes */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 shadow-xs space-y-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center justify-center shrink-0">
+                  <CalendarDays size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <span>Filtrar Gráficos por Período Temporal</span>
+                    {isTimeFilterActive && (
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-cyan-100 text-cyan-900 border border-cyan-300">
+                        Activo
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Segmenta notas promedio, polígono radar, top auditores y áreas por fecha, año y mes.
+                  </p>
+                </div>
+              </div>
+
+              {/* Presets rápidos */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleApplyTimePreset('all')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                    timePreset === 'all' && filterYear === 'all' && filterMonth === 'all' && !filterStartDate && !filterEndDate
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Todo el Histórico
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyTimePreset('this_year')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                    timePreset === 'this_year'
+                      ? 'bg-cyan-700 text-white border-cyan-700 shadow-2xs'
+                      : 'bg-cyan-50 text-cyan-900 border-cyan-200 hover:bg-cyan-100'
+                  }`}
+                >
+                  Este Año ({new Date().getFullYear()})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyTimePreset('this_month')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                    timePreset === 'this_month'
+                      ? 'bg-cyan-700 text-white border-cyan-700 shadow-2xs'
+                      : 'bg-cyan-50 text-cyan-900 border-cyan-200 hover:bg-cyan-100'
+                  }`}
+                >
+                  Este Mes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyTimePreset('last_month')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                    timePreset === 'last_month'
+                      ? 'bg-cyan-700 text-white border-cyan-700 shadow-2xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Mes Anterior
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyTimePreset('last_90')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                    timePreset === 'last_90'
+                      ? 'bg-cyan-700 text-white border-cyan-700 shadow-2xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Últimos 90 días
+                </button>
+              </div>
+            </div>
+
+            {/* Selectores específicos de Año, Mes y Rango de Fecha */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 pt-2.5 border-t border-slate-100">
+              {/* Selector de Año */}
+              <div className="sm:col-span-3">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Año de Auditoría
+                </label>
+                <select
+                  value={filterYear}
+                  onChange={(e) => {
+                    setFilterYear(e.target.value);
+                    setTimePreset('custom');
+                  }}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-cyan-600 focus:bg-white cursor-pointer"
+                >
+                  <option value="all">Año: Todos los Años</option>
+                  {availableYears.map((y) => (
+                    <option key={y} value={y}>
+                      Año {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Selector de Mes */}
+              <div className="sm:col-span-3">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Mes de Auditoría
+                </label>
+                <select
+                  value={filterMonth}
+                  onChange={(e) => {
+                    setFilterMonth(e.target.value);
+                    setTimePreset('custom');
+                  }}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-cyan-600 focus:bg-white cursor-pointer"
+                >
+                  <option value="all">Mes: Todos los Meses</option>
+                  {MONTH_NAMES.map((name, idx) => (
+                    <option key={idx} value={String(idx)}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Rango de Fecha Personalizado: Desde / Hasta */}
+              <div className="sm:col-span-3">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Fecha Desde
+                </label>
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => {
+                    setFilterStartDate(e.target.value);
+                    setTimePreset('custom');
+                  }}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-cyan-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Fecha Hasta
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(e) => {
+                      setFilterEndDate(e.target.value);
+                      setTimePreset('custom');
+                    }}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-cyan-600 focus:bg-white"
+                  />
+                  {isTimeFilterActive && (
+                    <button
+                      type="button"
+                      onClick={handleResetTimeFilter}
+                      className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-700 transition-colors shrink-0 cursor-pointer"
+                      title="Restablecer filtros de fecha"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Resumen del período seleccionado */}
+            {isTimeFilterActive && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs pt-2 border-t border-slate-100 text-slate-600 font-medium">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                  <span>
+                    Filtrando gráficos por:{' '}
+                    <strong className="text-slate-900">
+                      {filterYear !== 'all' ? `Año ${filterYear}` : ''}
+                      {filterMonth !== 'all' ? ` • ${MONTH_NAMES[Number(filterMonth)]}` : ''}
+                      {filterStartDate ? ` • Desde ${formatDate(filterStartDate)}` : ''}
+                      {filterEndDate ? ` • Hasta ${formatDate(filterEndDate)}` : ''}
+                    </strong>{' '}
+                    ({temporalFilteredAudits.length} {temporalFilteredAudits.length === 1 ? 'evaluación encontrada' : 'evaluaciones encontradas'})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetTimeFilter}
+                  className="text-[11px] font-bold text-cyan-700 hover:underline inline-flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                >
+                  <RotateCcw size={11} />
+                  <span>Ver Todo el Histórico</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* KPI Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Total Evaluaciones"
+              value={stats.total}
+              subtitle={isTimeFilterActive ? "En período seleccionado" : "Auditorías registradas"}
+              icon={ShieldCheck}
+              accentColor="cyan"
+            />
+            <StatCard
+              title="Puntaje Promedio"
+              value={`${stats.avgScore}%`}
+              subtitle="Calificación del período"
+              icon={TrendingUp}
+              accentColor="emerald"
+            />
+            <StatCard
+              title="Áreas Destacadas"
+              value={stats.compliant}
+              subtitle="Puntaje ≥ 80%"
+              icon={Award}
+              accentColor="indigo"
+            />
+            <StatCard
+              title="Tasa Cumplimiento"
+              value={`${stats.complianceRate}%`}
+              subtitle="Estándar alcanzado"
+              icon={ShieldCheck}
+              accentColor="amber"
+            />
+          </div>
 
       {/* Main Grid: Radar chart on left, Recent Audits list on right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1320,12 +1721,34 @@ export const AuditsPage: React.FC = () => {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Execution Modal */}
       <AuditEvaluationModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setPlanToExecute(null);
+        }}
         onSave={handleSaveAudit}
+        initialArea={planToExecute?.area}
+        initialAuditor={planToExecute?.auditor}
+        initialAuditPlanId={planToExecute?.id}
+        onSuccessAudit={async (result) => {
+          if (result.planId) {
+            await auditPlanService.togglePlanItemStatus(
+              result.planId,
+              'completed',
+              result.score,
+              result.auditId
+            );
+            toast.success(`Auditoría del plan en "${result.area}" marcada como realizada (${result.score}%)`, {
+              icon: '🎉',
+            });
+          }
+          loadAudits();
+        }}
       />
     </div>
   );

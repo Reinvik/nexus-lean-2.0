@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../components/common/Modal';
 import { Button } from '../../../components/common/Button';
 import { AUDIT_CRITERIA } from '../services/auditService';
@@ -10,6 +10,10 @@ interface AuditEvaluationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (auditData: any, entries: Audit5SEntry[]) => Promise<any>;
+  initialArea?: string;
+  initialAuditor?: string;
+  initialAuditPlanId?: string;
+  onSuccessAudit?: (result: { area: string; auditor: string; score: number; auditId?: string; planId?: string }) => void;
 }
 
 type SectionKey = 'S1' | 'S2' | 'S3' | 'S4' | 'S5';
@@ -19,6 +23,10 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  initialArea,
+  initialAuditor,
+  initialAuditPlanId,
+  onSuccessAudit,
 }) => {
   const { user, activeCompanyId } = useAuth();
 
@@ -26,6 +34,18 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
   const [area, setArea] = useState('');
   const [auditorName, setAuditorName] = useState(user?.name || '');
   const [auditDate, setAuditDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialArea) setArea(initialArea);
+      if (initialAuditor) setAuditorName(initialAuditor);
+      else if (!auditorName && user?.name) setAuditorName(user.name);
+      setAuditDate(new Date().toISOString().split('T')[0]);
+      setActiveStep('S1');
+      setAnswers({});
+      setErrorMsg('');
+    }
+  }, [isOpen, initialArea, initialAuditor, user?.name]);
 
   // Scores state: Map question key -> score (0 to 4)
   const [answers, setAnswers] = useState<Record<string, { score: number; comment: string }>>({});
@@ -95,6 +115,15 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
       if (res && res.success === false) {
         setErrorMsg(res.error || 'Error al guardar la auditoría');
       } else {
+        if (onSuccessAudit) {
+          onSuccessAudit({
+            area,
+            auditor: auditorName,
+            score: totalScorePercent,
+            auditId: res?.auditId,
+            planId: initialAuditPlanId,
+          });
+        }
         onClose();
       }
     } catch (err: any) {

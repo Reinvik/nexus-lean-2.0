@@ -115,6 +115,36 @@ export interface Audit5S {
   isOffline?: boolean;
 }
 
+// 5S Audit Plan / Schedule Types
+export interface AuditPlanItem {
+  id: string;
+  company_id: string;
+  area: string;
+  auditor: string;
+  planned_date: string; // YYYY-MM-DD
+  frequency?: 'Única' | 'Semanal' | 'Quincenal' | 'Mensual' | 'Bimestral' | 'Trimestral' | 'Semestral' | 'Anual';
+  status: 'pending' | 'completed'; // 'pending' = Pendiente, 'completed' = Realizada
+  completed_date?: string | null;
+  score?: number | null; // Calificación obtenida si ya se evaluó
+  completed_audit_id?: string | null; // Id de la auditoría 5S vinculada
+  guide_url?: string | null; // Documento o guía de verificación específica adjunta
+  guide_name?: string | null; // Nombre original del archivo guía
+  notes?: string | null; // Observaciones, alcance o foco de la auditoría
+  created_at: string;
+}
+
+export interface AuditPlanCompanyGuide {
+  id: string;
+  company_id: string;
+  title: string;
+  file_url: string;
+  file_name: string;
+  file_size?: number;
+  uploaded_at: string;
+  uploaded_by?: string;
+  description?: string;
+}
+
 // Quick Wins Types
 export interface QuickWin {
   id: string;

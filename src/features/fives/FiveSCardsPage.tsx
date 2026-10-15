@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import HeaderWithFilter from '../../components/common/HeaderWithFilter';
@@ -14,6 +15,7 @@ import {
   Camera,
   X,
   Calendar,
+  CalendarCheck,
   MapPin,
   User,
   FileText,
@@ -77,6 +79,7 @@ const getWeekNumber = (d: Date) => {
 };
 
 export const FiveSCardsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, globalFilterCompanyId, companies, activeCompanyId } = useAuth();
 
   // Cards State
@@ -799,6 +802,16 @@ export const FiveSCardsPage: React.FC = () => {
           }`}
         >
           Todas
+        </button>
+
+        <button
+          onClick={() => navigate('/auditorias-5s?tab=plan')}
+          className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 transition-all shadow-2xs cursor-pointer active:scale-95"
+          title="Ver o programar en el Plan de Auditorías 5S"
+        >
+          <CalendarCheck size={14} className="text-cyan-700" />
+          <span>Plan de Auditoría 5S</span>
+          <ArrowRight size={12} />
         </button>
       </div>
 
