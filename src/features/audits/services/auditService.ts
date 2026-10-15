@@ -7,16 +7,16 @@ export const AUDIT_CRITERIA: Record<
   { title: string; subtitle: string; questions: string[] }
 > = {
   S1: {
-    title: '1S - Clasificar (Seiri)',
-    subtitle: 'Distinguir lo necesario de lo innecesario',
+    title: 'S - Seleccionar (Seiri)',
+    subtitle: 'Distinguir lo necesario de lo innecesario y retirar lo prescindible',
     questions: [
       '¿Se han eliminado los elementos innecesarios del área?',
-      '¿Las herramientas y materiales están clasificados correctamente?',
+      '¿Las herramientas y materiales están seleccionados y clasificados correctamente?',
       '¿Los pasillos y zonas de paso están libres de obstáculos?',
     ],
   },
   S2: {
-    title: '2S - Ordenar (Seiton)',
+    title: 'O - Ordenar (Seiton)',
     subtitle: 'Un lugar para cada cosa y cada cosa en su lugar',
     questions: [
       '¿Cada cosa tiene un lugar asignado y está en su lugar?',
@@ -25,8 +25,8 @@ export const AUDIT_CRITERIA: Record<
     ],
   },
   S3: {
-    title: '3S - Limpiar (Seiso)',
-    subtitle: 'La limpieza es inspección y mantenimiento',
+    title: 'L - Limpiar (Seiso)',
+    subtitle: 'La limpieza es inspección y mantenimiento continuo',
     questions: [
       '¿El área de trabajo está limpia y libre de polvo, derrames o residuos?',
       '¿Existen programas o rutinas de limpieza visibles y se siguen?',
@@ -34,7 +34,7 @@ export const AUDIT_CRITERIA: Record<
     ],
   },
   S4: {
-    title: '4S - Estandarizar (Seiketsu)',
+    title: 'E - Estandarizar (Seiketsu)',
     subtitle: 'Crear hábitos y controles visuales para mantener las 3S',
     questions: [
       '¿Existen estándares visuales claros para el estado "normal"?',
@@ -43,8 +43,8 @@ export const AUDIT_CRITERIA: Record<
     ],
   },
   S5: {
-    title: '5S - Disciplina (Shitsuke)',
-    subtitle: 'Fomentar la cultura de mejora continua y rigor',
+    title: 'S - Sostener (Shitsuke)',
+    subtitle: 'Fomentar la cultura de mejora continua, disciplina y rigor',
     questions: [
       '¿Se realizan auditorías periódicas y se respetan las fechas?',
       '¿Se respetan las normas de seguridad y EPP consistentemente?',

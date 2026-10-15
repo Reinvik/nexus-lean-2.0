@@ -25,11 +25,11 @@ export const AuditRadarChart: React.FC<AuditRadarChartProps> = ({
   targetScore = 100,
 }) => {
   const data = [
-    { subject: '1S - Clasificar', score: scores.s1, target: targetScore, fullMark: 100 },
-    { subject: '2S - Ordenar', score: scores.s2, target: targetScore, fullMark: 100 },
-    { subject: '3S - Limpiar', score: scores.s3, target: targetScore, fullMark: 100 },
-    { subject: '4S - Estandarizar', score: scores.s4, target: targetScore, fullMark: 100 },
-    { subject: '5S - Disciplina', score: scores.s5, target: targetScore, fullMark: 100 },
+    { subject: 'S - Seleccionar', letter: 'S', name: 'Seleccionar', score: scores.s1, target: targetScore, fullMark: 100 },
+    { subject: 'O - Ordenar', letter: 'O', name: 'Ordenar', score: scores.s2, target: targetScore, fullMark: 100 },
+    { subject: 'L - Limpiar', letter: 'L', name: 'Limpiar', score: scores.s3, target: targetScore, fullMark: 100 },
+    { subject: 'E - Estandarizar', letter: 'E', name: 'Estandarizar', score: scores.s4, target: targetScore, fullMark: 100 },
+    { subject: 'S - Sostener', letter: 'S', name: 'Sostener', score: scores.s5, target: targetScore, fullMark: 100 },
   ];
 
   return (
@@ -73,6 +73,7 @@ export const AuditRadarChart: React.FC<AuditRadarChartProps> = ({
               color: '#0f172a',
               boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.08)',
             }}
+            formatter={(value: any, name: any) => [`${value}%`, name]}
           />
         </RadarChart>
       </ResponsiveContainer>

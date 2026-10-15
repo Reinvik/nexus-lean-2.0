@@ -864,8 +864,8 @@ export const AuditsPage: React.FC = () => {
                 />
                 <span>
                   {selectedAudit
-                    ? `Radar 5S: ${selectedAudit.area || selectedAudit.title}`
-                    : 'Radar de Madurez 5S'}
+                    ? `Radar 5S (SOLES): ${selectedAudit.area || selectedAudit.title}`
+                    : 'Radar de Madurez 5S (SOLES)'}
                 </span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5 font-medium">
@@ -875,7 +875,7 @@ export const AuditsPage: React.FC = () => {
                     <strong className="text-slate-700">{selectedAudit.auditor}</strong> ({getNormalizedScore(selectedAudit.total_score)}%)
                   </span>
                 ) : (
-                  'Promedio general de desempeño en las 5 dimensiones'
+                  'Madurez en las 5 dimensiones: Seleccionar, Ordenar, Limpiar, Estandarizar y Sostener'
                 )}
               </p>
             </div>
@@ -897,24 +897,34 @@ export const AuditsPage: React.FC = () => {
 
           <div className="grid grid-cols-5 gap-2 pt-4 border-t border-slate-100 text-center">
             <div className="bg-cyan-50/80 border border-cyan-200 rounded-xl p-2">
-              <span className="text-[11px] text-slate-700 block font-bold">1S Seiri</span>
-              <span className="text-sm font-black text-cyan-900">{activeRadarScores.s1}%</span>
+              <span className="text-[10px] font-black text-cyan-800 uppercase tracking-wider block">S</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Seleccionar</span>
+              <span className="text-[9px] text-slate-500 block">1S Seiri</span>
+              <span className="text-sm font-black text-cyan-900 mt-1 block">{activeRadarScores.s1}%</span>
             </div>
             <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-2">
-              <span className="text-[11px] text-slate-700 block font-bold">2S Seiton</span>
-              <span className="text-sm font-black text-indigo-900">{activeRadarScores.s2}%</span>
+              <span className="text-[10px] font-black text-indigo-800 uppercase tracking-wider block">O</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Ordenar</span>
+              <span className="text-[9px] text-slate-500 block">2S Seiton</span>
+              <span className="text-sm font-black text-indigo-900 mt-1 block">{activeRadarScores.s2}%</span>
             </div>
             <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2">
-              <span className="text-[11px] text-slate-700 block font-bold">3S Seiso</span>
-              <span className="text-sm font-black text-emerald-900">{activeRadarScores.s3}%</span>
+              <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">L</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Limpiar</span>
+              <span className="text-[9px] text-slate-500 block">3S Seiso</span>
+              <span className="text-sm font-black text-emerald-900 mt-1 block">{activeRadarScores.s3}%</span>
             </div>
             <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-2">
-              <span className="text-[11px] text-slate-700 block font-bold">4S Seiketsu</span>
-              <span className="text-sm font-black text-amber-900">{activeRadarScores.s4}%</span>
+              <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">E</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Estandarizar</span>
+              <span className="text-[9px] text-slate-500 block">4S Seiketsu</span>
+              <span className="text-sm font-black text-amber-900 mt-1 block">{activeRadarScores.s4}%</span>
             </div>
             <div className="bg-rose-50/80 border border-rose-200 rounded-xl p-2">
-              <span className="text-[11px] text-slate-700 block font-bold">5S Shitsuke</span>
-              <span className="text-sm font-black text-rose-900">{activeRadarScores.s5}%</span>
+              <span className="text-[10px] font-black text-rose-800 uppercase tracking-wider block">S</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Sostener</span>
+              <span className="text-[9px] text-slate-500 block">5S Shitsuke</span>
+              <span className="text-sm font-black text-rose-900 mt-1 block">{activeRadarScores.s5}%</span>
             </div>
           </div>
         </div>
