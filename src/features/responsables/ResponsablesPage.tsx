@@ -48,7 +48,7 @@ import {
 import toast from 'react-hot-toast';
 import ResponsablesKanbanBoard from './components/ResponsablesKanbanBoard';
 import ResponsablesTaskDetailModals from './components/ResponsablesTaskDetailModals';
-import { Profile, A3Project } from '../../types';
+import { Profile, A3Project, A3ActionPlanItem } from '../../types';
 
 // Helper: Calculate ISO week number and year
 export const getISOWeekInfo = (
@@ -942,20 +942,218 @@ export const ResponsablesPage: React.FC = () => {
     return list;
   }, [collaborators]);
 
-  // Bidirectional Supabase update when moving a card on the Kanban board
+  // Instant Optimistic Updates for Tickets, Subtasks, and Modal Saves (0ms UI feedback)
+  const handleOptimisticUpdateTask = useCallback(
+    (updatedTask: Partial<TaskItem> & { id: string }) => {
+      // 1. Actualizar memoria de proyectos A3 si aplica
+      if (updatedTask.a3ProjectId) {
+        setA3ProjectsMap((prevMap) => {
+          const currentA3 = prevMap.get(updatedTask.a3ProjectId!);
+          if (!currentA3) return prevMap;
+          const targetPlan = currentA3.actionPlan || currentA3.action_plan;
+          const rawPlan: A3ActionPlanItem[] = Array.isArray(targetPlan) ? [...targetPlan] : [];
+          const updatedPlan = rawPlan.map((act: any, idx: number) => {
+            const matchById =
+              updatedTask.actionId !== undefined &&
+              act.id !== undefined &&
+              String(act.id) === String(updatedTask.actionId);
+            const matchByIdx = updatedTask.actionIndex !== undefined && idx === updatedTask.actionIndex;
+            if (!matchById && !matchByIdx) return act;
+            return {
+              ...act,
+              what: updatedTask.title || act.what || act.activity,
+              activity: updatedTask.title || act.activity || act.what,
+              where: updatedTask.area !== undefined ? updatedTask.area : act.where,
+              when: updatedTask.deadline !== undefined ? updatedTask.deadline : act.when,
+              status: updatedTask.status !== undefined ? updatedTask.status : act.status,
+              progress: typeof updatedTask.progress === 'number' ? updatedTask.progress : act.progress,
+              subtasks: updatedTask.subtasks || act.subtasks,
+            };
+          });
+
+          const nextMap = new Map(prevMap);
+          nextMap.set(updatedTask.a3ProjectId!, {
+            ...currentA3,
+            actionPlan: updatedPlan,
+            action_plan: updatedPlan,
+          });
+          return nextMap;
+        });
+      }
+
+      // 2. Actualizar colaboradores y sus tareas en tiempo real
+      setCollaborators((prevCollaborators) => {
+        let changed = false;
+        const nextCollaborators = prevCollaborators.map((collab) => {
+          const taskIdx = collab.tasks.findIndex(
+            (t) =>
+              t.id === updatedTask.id ||
+              (updatedTask.type === 'A3_ACTION' &&
+                t.type === 'A3_ACTION' &&
+                t.a3ProjectId === updatedTask.a3ProjectId &&
+                ((updatedTask.actionId !== undefined &&
+                  t.actionId !== undefined &&
+                  String(t.actionId) === String(updatedTask.actionId)) ||
+                  (updatedTask.actionIndex !== undefined &&
+                    t.actionIndex === updatedTask.actionIndex)))
+          );
+
+          if (taskIdx === -1) return collab;
+
+          changed = true;
+          const currentTask = collab.tasks[taskIdx];
+          const nextTask: TaskItem = {
+            ...currentTask,
+            ...updatedTask,
+            rawTask: {
+              ...(typeof currentTask.rawTask === 'object' ? currentTask.rawTask : {}),
+              ...(typeof updatedTask.rawTask === 'object' ? updatedTask.rawTask : {}),
+            },
+          };
+
+          const nextTasks = [...collab.tasks];
+          nextTasks[taskIdx] = nextTask;
+
+          // Recalcular métricas de este colaborador
+          let completed = 0;
+          let inProgress = 0;
+          let pending = 0;
+          let fiveSCompleted = 0;
+          let fiveSPending = 0;
+          let qwCompleted = 0;
+          let qwPending = 0;
+          let a3Completed = 0;
+          let a3Pending = 0;
+
+          nextTasks.forEach((t) => {
+            if (t.status === 'completed') {
+              completed++;
+              if (t.type === '5S') fiveSCompleted++;
+              else if (t.type === 'QW') qwCompleted++;
+              else if (t.type === 'A3' || t.type === 'A3_ACTION') a3Completed++;
+            } else if (t.status === 'in_progress') {
+              inProgress++;
+              if (t.type === '5S') fiveSPending++;
+              else if (t.type === 'QW') qwPending++;
+              else if (t.type === 'A3' || t.type === 'A3_ACTION') a3Pending++;
+            } else {
+              pending++;
+              if (t.type === '5S') fiveSPending++;
+              else if (t.type === 'QW') qwPending++;
+              else if (t.type === 'A3' || t.type === 'A3_ACTION') a3Pending++;
+            }
+          });
+
+          const totalAssigned = nextTasks.length;
+          const complianceRate =
+            totalAssigned > 0 ? Math.round((completed / totalAssigned) * 100) : 0;
+
+          return {
+            ...collab,
+            tasks: nextTasks,
+            totalAssigned,
+            totalCompleted: completed,
+            totalInProgress: inProgress,
+            totalPending: pending,
+            complianceRate,
+            fiveSCount: {
+              ...collab.fiveSCount,
+              completed: fiveSCompleted,
+              pending: fiveSPending,
+            },
+            quickWinsCount: {
+              ...collab.quickWinsCount,
+              completed: qwCompleted,
+              pending: qwPending,
+            },
+            a3Count: {
+              ...collab.a3Count,
+              completed: a3Completed,
+              pending: a3Pending,
+            },
+          };
+        });
+
+        return changed ? nextCollaborators : prevCollaborators;
+      });
+    },
+    []
+  );
+
+  // Bidirectional Supabase update when moving a card on the Kanban board with instant Optimistic UI
   const handleUpdateTaskStatus = async (
     task: TaskItem,
     newStatus: 'pending' | 'in_progress' | 'completed'
   ) => {
+    // 1. Instant Optimistic UI (0ms en pantalla)
+    const isCompleted = newStatus === 'completed';
+    const isInProgress = newStatus === 'in_progress';
+    const closeDate = isCompleted ? new Date().toISOString().split('T')[0] : undefined;
+
+    let nextProgress = task.progress;
+    let nextSubtasks = task.subtasks;
+
+    if (task.type === 'A3_ACTION') {
+      nextProgress = isCompleted
+        ? 100
+        : isInProgress
+        ? task.progress && task.progress > 0 && task.progress < 100
+          ? task.progress
+          : 50
+        : 0;
+      if (Array.isArray(task.subtasks)) {
+        nextSubtasks = task.subtasks.map((s) =>
+          isCompleted ? { ...s, completed: true } : newStatus === 'pending' ? { ...s, completed: false } : s
+        );
+      }
+    }
+
+    const rawStatusLabel =
+      task.type === '5S'
+        ? isCompleted
+          ? 'Cerrado'
+          : isInProgress
+          ? 'En Proceso'
+          : 'Abierto'
+        : task.type === 'QW'
+        ? isCompleted
+          ? 'done'
+          : isInProgress
+          ? 'in_progress'
+          : 'idea'
+        : isCompleted
+        ? 'Realizado'
+        : isInProgress
+        ? 'En Proceso'
+        : 'Pendiente';
+
+    handleOptimisticUpdateTask({
+      id: task.id,
+      type: task.type,
+      a3ProjectId: task.a3ProjectId,
+      actionId: task.actionId,
+      actionIndex: task.actionIndex,
+      status: newStatus,
+      rawStatus: rawStatusLabel,
+      closeDate,
+      progress: nextProgress,
+      subtasks: nextSubtasks,
+    });
+
+    const statusLabel =
+      newStatus === 'completed' ? 'Realizado' : newStatus === 'in_progress' ? 'En Proceso' : 'Por Hacer';
+    toast.success(`Tarea movida a "${statusLabel}"`, { id: `status-${task.id}` });
+
+    // 2. Persistencia en Supabase en segundo plano
     try {
       if (task.type === '5S') {
         const dbStatus =
           newStatus === 'completed' ? 'Cerrado' : newStatus === 'in_progress' ? 'En Proceso' : 'Abierto';
-        const closeDate =
+        const closeDateVal =
           newStatus === 'completed' ? new Date().toISOString().split('T')[0] : null;
         const { error } = await supabase
           .from('five_s_cards')
-          .update({ status: dbStatus, close_date: closeDate })
+          .update({ status: dbStatus, close_date: closeDateVal })
           .eq('id', task.id);
         if (error) throw error;
       } else if (task.type === 'QW') {
@@ -992,25 +1190,6 @@ export const ResponsablesPage: React.FC = () => {
           const matchByIdx = task.actionIndex !== undefined && idx === task.actionIndex;
           if (!matchById && !matchByIdx) return act;
 
-          const nextProgress =
-            newStatus === 'completed'
-              ? 100
-              : newStatus === 'in_progress'
-              ? act.progress > 0 && act.progress < 100
-                ? act.progress
-                : 50
-              : 0;
-
-          const nextSubtasks = Array.isArray(act.subtasks)
-            ? act.subtasks.map((s: any) =>
-                newStatus === 'completed'
-                  ? { ...s, completed: true }
-                  : newStatus === 'pending'
-                  ? { ...s, completed: false }
-                  : s
-              )
-            : act.subtasks;
-
           return {
             ...act,
             status: newStatus,
@@ -1025,20 +1204,46 @@ export const ResponsablesPage: React.FC = () => {
           .eq('id', task.a3ProjectId);
         if (updErr) throw updErr;
       }
-
-      const statusLabel =
-        newStatus === 'completed' ? 'Realizado' : newStatus === 'in_progress' ? 'En Proceso' : 'Por Hacer';
-      toast.success(`Tarea movida a "${statusLabel}"`);
-      await loadData(true);
     } catch (err: any) {
       console.error('Error updating task status from Kanban:', err);
-      toast.error(`No se pudo actualizar el estado: ${err.message || 'Error de red'}`);
+      toast.error(`No se pudo sincronizar el estado: ${err.message || 'Error de red'}`);
+      await loadData(true);
     }
   };
 
-  // Toggle an A3 5W2H subtask directly from the Kanban card
+  // Toggle an A3 5W2H subtask directly from the Kanban card with instant Optimistic UI
   const handleToggleSubtask = async (task: TaskItem, subtaskId: string | number) => {
     if (task.type !== 'A3_ACTION' || !task.a3ProjectId) return;
+
+    // 1. Instant Optimistic UI (0ms en pantalla)
+    const currentSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+    const nextSubtasks = currentSubtasks.map((s) =>
+      String(s.id) === String(subtaskId) ? { ...s, completed: !s.completed } : s
+    );
+    const total = nextSubtasks.length;
+    const doneCount = nextSubtasks.filter((s) => s.completed).length;
+    const nextProgress = total > 0 ? Math.round((doneCount / total) * 100) : task.progress || 0;
+    const nextStatus: 'pending' | 'in_progress' | 'completed' =
+      nextProgress === 100 ? 'completed' : nextProgress > 0 ? 'in_progress' : 'pending';
+    const nextRawStatus =
+      nextStatus === 'completed' ? 'Realizado' : nextStatus === 'in_progress' ? 'En Proceso' : 'Pendiente';
+
+    handleOptimisticUpdateTask({
+      id: task.id,
+      type: task.type,
+      a3ProjectId: task.a3ProjectId,
+      actionId: task.actionId,
+      actionIndex: task.actionIndex,
+      subtasks: nextSubtasks,
+      progress: nextProgress,
+      status: nextStatus,
+      rawStatus: nextRawStatus,
+      closeDate: nextStatus === 'completed' ? new Date().toISOString().split('T')[0] : undefined,
+    });
+
+    toast.success('Subtarea actualizada', { id: `subtask-${task.id}` });
+
+    // 2. Persistencia en Supabase
     try {
       const { data: a3Data, error: fetchErr } = await supabase
         .from('a3_projects')
@@ -1056,15 +1261,6 @@ export const ResponsablesPage: React.FC = () => {
         const matchByIdx = task.actionIndex !== undefined && idx === task.actionIndex;
         if (!matchById && !matchByIdx) return act;
 
-        const nextSubtasks = (act.subtasks || []).map((s: any) =>
-          String(s.id) === String(subtaskId) ? { ...s, completed: !s.completed } : s
-        );
-        const total = nextSubtasks.length;
-        const doneCount = nextSubtasks.filter((s: any) => s.completed).length;
-        const nextProgress = total > 0 ? Math.round((doneCount / total) * 100) : act.progress || 0;
-        const nextStatus =
-          nextProgress === 100 ? 'completed' : nextProgress > 0 ? 'in_progress' : 'pending';
-
         return {
           ...act,
           subtasks: nextSubtasks,
@@ -1078,12 +1274,10 @@ export const ResponsablesPage: React.FC = () => {
         .update({ action_plan: updatedPlan })
         .eq('id', task.a3ProjectId);
       if (updErr) throw updErr;
-
-      toast.success('Subtarea actualizada');
-      await loadData(true);
     } catch (err: any) {
       console.error('Error toggling subtask from Kanban:', err);
-      toast.error('Error al actualizar la subtarea');
+      toast.error('Error al guardar la subtarea');
+      await loadData(true);
     }
   };
 
@@ -1977,6 +2171,7 @@ export const ResponsablesPage: React.FC = () => {
         activeTask={activeModalTask}
         onClose={() => setActiveModalTask(null)}
         onRefreshData={() => loadData(true)}
+        onOptimisticUpdateTask={handleOptimisticUpdateTask}
         users={profilesList}
         companies={companies || []}
         currentUser={user}

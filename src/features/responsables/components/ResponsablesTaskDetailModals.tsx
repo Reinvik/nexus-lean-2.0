@@ -38,6 +38,7 @@ interface ResponsablesTaskDetailModalsProps {
   activeTask: TaskItem | null;
   onClose: () => void;
   onRefreshData: () => Promise<void>;
+  onOptimisticUpdateTask?: (updatedTask: Partial<TaskItem> & { id: string }) => void;
   users: Profile[];
   companies: Company[];
   currentUser: any;
@@ -73,6 +74,7 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
   activeTask,
   onClose,
   onRefreshData,
+  onOptimisticUpdateTask,
   users,
   companies,
   currentUser,
@@ -183,6 +185,37 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
   }, [activeTask]);
 
   const handleSaveFiveSCard = async (cardData: Partial<FiveSCard>): Promise<boolean> => {
+    // Optimistic Update inmediato
+    if (activeTask) {
+      const isClosed = ['cerrado', 'closed', 'completado'].includes(
+        (cardData.status || '').toLowerCase()
+      );
+      const inProgress = ['en proceso', 'in_progress'].includes(
+        (cardData.status || '').toLowerCase()
+      );
+      const nextStatus: 'pending' | 'in_progress' | 'completed' = isClosed
+        ? 'completed'
+        : inProgress
+        ? 'in_progress'
+        : 'pending';
+
+      onOptimisticUpdateTask?.({
+        id: activeTask.id,
+        title: cardData.article || cardData.description || activeTask.title,
+        area: cardData.location || cardData.area || activeTask.area,
+        status: nextStatus,
+        rawStatus: cardData.status || activeTask.rawStatus,
+        deadline: cardData.targetDate || cardData.due_date || activeTask.deadline,
+        closeDate: isClosed
+          ? cardData.solutionDate ||
+            cardData.close_date ||
+            new Date().toISOString().split('T')[0]
+          : undefined,
+        rawTask: { ...(activeTask.rawTask || {}), ...cardData },
+      });
+      onClose();
+    }
+
     try {
       const assignedUser = users.find(
         (u) =>
@@ -232,11 +265,13 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
         .eq('id', cardId);
 
       if (error) throw error;
+      toast.success('Tarjeta 5S guardada');
       await onRefreshData();
       return true;
     } catch (err: any) {
       console.error('Error guardando tarjeta 5S desde Responsables:', err);
       toast.error('Error al guardar tarjeta 5S: ' + (err.message || 'Error desconocido'));
+      await onRefreshData();
       return false;
     }
   };
@@ -280,6 +315,36 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
   };
 
   const handleSaveQuickWin = async (updatedWin: QuickWin) => {
+    // Optimistic Update inmediato
+    if (activeTask) {
+      const isClosed = ['done', 'completed', 'completada', 'cerrada', 'implementada'].includes(
+        (updatedWin.status || '').toLowerCase()
+      );
+      const inProgress = ['in_progress', 'en proceso', 'ejecucion'].includes(
+        (updatedWin.status || '').toLowerCase()
+      );
+      const nextStatus: 'pending' | 'in_progress' | 'completed' = isClosed
+        ? 'completed'
+        : inProgress
+        ? 'in_progress'
+        : 'pending';
+
+      onOptimisticUpdateTask?.({
+        id: activeTask.id,
+        title: updatedWin.title || activeTask.title,
+        status: nextStatus,
+        rawStatus: updatedWin.status || activeTask.rawStatus,
+        deadline: updatedWin.deadline || activeTask.deadline,
+        closeDate: isClosed
+          ? updatedWin.completed_at || new Date().toISOString()
+          : undefined,
+        rawTask: { ...(activeTask.rawTask || {}), ...updatedWin },
+      });
+      setLocalQuickWin(updatedWin);
+      toast.success('Quick Win actualizado correctamente');
+      onClose();
+    }
+
     try {
       const { error } = await supabase
         .from('quick_wins')
@@ -303,12 +368,11 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
         .eq('id', updatedWin.id);
 
       if (error) throw error;
-      toast.success('Quick Win actualizado correctamente');
-      setLocalQuickWin(updatedWin);
       await onRefreshData();
     } catch (error: any) {
       console.error('Error actualizando Quick Win desde Responsables:', error);
       toast.error('Error al actualizar Quick Win: ' + (error?.message || ''));
+      await onRefreshData();
       throw error;
     }
   };
@@ -318,6 +382,25 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
     comment: string,
     images: string[]
   ) => {
+    // Optimistic Update inmediato
+    if (activeTask) {
+      onOptimisticUpdateTask?.({
+        id: activeTask.id,
+        status: 'completed',
+        rawStatus: 'done',
+        closeDate: new Date().toISOString(),
+        rawTask: {
+          ...(activeTask.rawTask || {}),
+          status: 'done',
+          completion_comment: comment,
+          completion_image_url: images[0] || null,
+        },
+      });
+      setCompletionModalWinId(null);
+      toast.success('¡Quick Win completado exitosamente!');
+      onClose();
+    }
+
     try {
       const completedAt = new Date().toISOString();
       const { error } = await supabase
@@ -332,13 +415,11 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
         .eq('id', winId);
 
       if (error) throw error;
-      toast.success('¡Quick Win completado exitosamente!');
       await onRefreshData();
-      setCompletionModalWinId(null);
-      onClose();
     } catch (error: any) {
       console.error('Error completando Quick Win:', error);
       toast.error('Error al completar Quick Win: ' + (error?.message || ''));
+      await onRefreshData();
       throw error;
     }
   };
@@ -397,6 +478,54 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
 
   const handleSaveSingle5W2HAction = async (updatedItem: A3ActionPlanItem) => {
     if (!activeTask || !activeTask.a3ProjectId) return;
+
+    // Optimistic Update inmediato
+    const isCompleted =
+      ['done', 'completed', 'completada', 'cerrada', 'ok'].includes(
+        (updatedItem.status || '').toLowerCase()
+      ) || updatedItem.progress === 100;
+    const inProgress =
+      !isCompleted &&
+      (['in_progress', 'en proceso', 'en progreso', 'ejecucion'].includes(
+        (updatedItem.status || '').toLowerCase()
+      ) ||
+        (typeof updatedItem.progress === 'number' && updatedItem.progress > 0));
+    const nextStatus: 'pending' | 'in_progress' | 'completed' = isCompleted
+      ? 'completed'
+      : inProgress
+      ? 'in_progress'
+      : 'pending';
+    const nextProgress =
+      typeof updatedItem.progress === 'number'
+        ? updatedItem.progress
+        : isCompleted
+        ? 100
+        : inProgress
+        ? 50
+        : 0;
+
+    onOptimisticUpdateTask?.({
+      id: activeTask.id,
+      type: 'A3_ACTION',
+      a3ProjectId: activeTask.a3ProjectId,
+      actionId: activeTask.actionId,
+      actionIndex: activeTask.actionIndex,
+      title: updatedItem.what || updatedItem.activity || activeTask.title,
+      area: updatedItem.where || activeTask.area,
+      status: nextStatus,
+      rawStatus:
+        updatedItem.status || (isCompleted ? 'Realizado' : inProgress ? 'En Proceso' : 'Pendiente'),
+      deadline: updatedItem.when || activeTask.deadline,
+      closeDate: isCompleted
+        ? (updatedItem as any).solutionDate || new Date().toISOString().split('T')[0]
+        : undefined,
+      progress: nextProgress,
+      subtasks: Array.isArray(updatedItem.subtasks) ? updatedItem.subtasks : activeTask.subtasks,
+      rawTask: { ...(activeTask.rawTask || {}), ...updatedItem },
+    });
+    toast.success('Tarea 5W2H actualizada exitosamente');
+    onClose();
+
     try {
       const { data: a3Data, error: fetchErr } = await supabase
         .from('a3_projects')
@@ -426,13 +555,11 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
         .eq('id', activeTask.a3ProjectId);
 
       if (updErr) throw updErr;
-
-      toast.success('Tarea 5W2H actualizada exitosamente');
       await onRefreshData();
-      onClose();
     } catch (err: any) {
       console.error('Error guardando acción 5W2H desde Responsables:', err);
       toast.error('No se pudo guardar la tarea 5W2H: ' + (err?.message || 'Error'));
+      await onRefreshData();
     }
   };
 
