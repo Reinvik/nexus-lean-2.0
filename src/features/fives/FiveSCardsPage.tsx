@@ -971,7 +971,7 @@ export const FiveSCardsPage: React.FC = () => {
             </div>
 
             {/* Columna 2: Distribución por Estado (Doughnut central + 3 grandes botones Cerrado, En Progreso, Abierto) */}
-            <div className="bg-slate-50/50 rounded-xl p-4 sm:p-5 border border-slate-200/80 flex flex-col justify-between transition-all hover:border-slate-300">
+            <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-xs flex flex-col justify-between transition-all hover:border-slate-300">
               <div className="flex items-center justify-between mb-1">
                 <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <Activity size={15} className="text-blue-600" /> Distribución por Estado
@@ -1001,9 +1001,9 @@ export const FiveSCardsPage: React.FC = () => {
                       data={kpiData.statusData.filter((d) => d.value > 0)}
                       cx="50%"
                       cy="50%"
-                      innerRadius={55}
-                      outerRadius={75}
-                      paddingAngle={4}
+                      innerRadius={54}
+                      outerRadius={74}
+                      paddingAngle={3}
                       dataKey="value"
                       stroke="#ffffff"
                       strokeWidth={2}
@@ -1038,11 +1038,14 @@ export const FiveSCardsPage: React.FC = () => {
                         `${name} (clic para filtrar)`,
                       ]}
                       contentStyle={{
-                        borderRadius: '8px',
-                        border: 'none',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        backgroundColor: '#0f172a',
+                        borderRadius: '10px',
+                        border: '1px solid #334155',
+                        color: '#ffffff',
                         fontSize: '11px',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.2)',
                       }}
+                      itemStyle={{ color: '#38bdf8', fontWeight: 'bold' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -1062,39 +1065,39 @@ export const FiveSCardsPage: React.FC = () => {
               </div>
 
               {/* 3 Grandes Tarjetas de Estado Interactivas: Cerrado, En Progreso, Abierto */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+              <div className="grid grid-cols-3 gap-2 mt-2">
                 {/* Cerrado */}
                 {(() => {
                   const isSelected = statusFilter === 'Cerrado';
                   const count = kpiData.closed;
-                  const pct = kpiData.total > 0 ? Math.round((count / kpiData.total) * 100) : 0;
                   return (
                     <button
                       type="button"
                       onClick={() => handleStatusFilterToggle('Cerrado')}
-                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer ${
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer group min-w-0 ${
                         isSelected
                           ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-500 ring-offset-1'
                           : 'bg-emerald-50/70 border-emerald-200/90 text-slate-800 hover:bg-emerald-100 hover:border-emerald-300 shadow-xs'
                       }`}
                       title="Clic para filtrar tarjetas Cerradas"
                     >
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
-                          <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? 'bg-white' : 'bg-emerald-500'}`} />
-                          <span className={isSelected ? 'text-white' : 'text-emerald-900'}>Cerrado</span>
-                        </span>
-                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-md ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-emerald-200/70 text-emerald-800'
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : 'bg-emerald-500'}`} />
+                        <span className={`text-[11px] font-bold uppercase tracking-wider truncate ${
+                          isSelected ? 'text-white' : 'text-emerald-900'
                         }`}>
-                          {pct}%
+                          Cerrado
                         </span>
                       </div>
-                      <div className="flex items-baseline justify-between mt-1">
-                        <span className={`text-2xl sm:text-3xl font-black ${isSelected ? 'text-white' : 'text-emerald-700'}`}>
+                      <div className="mt-2 flex items-baseline justify-between gap-1 min-w-0">
+                        <span className={`text-2xl sm:text-3xl font-black tracking-tight leading-none ${
+                          isSelected ? 'text-white' : 'text-emerald-700'
+                        }`}>
                           {count}
                         </span>
-                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-emerald-100' : 'text-slate-500'}`}>
+                        <span className={`text-[10px] font-medium truncate ${
+                          isSelected ? 'text-emerald-100' : 'text-slate-500'
+                        }`}>
                           resueltas
                         </span>
                       </div>
@@ -1106,34 +1109,34 @@ export const FiveSCardsPage: React.FC = () => {
                 {(() => {
                   const isSelected = statusFilter === 'En Progreso' || statusFilter === 'En Proceso';
                   const count = kpiData.inProcess;
-                  const pct = kpiData.total > 0 ? Math.round((count / kpiData.total) * 100) : 0;
                   return (
                     <button
                       type="button"
                       onClick={() => handleStatusFilterToggle('En Progreso')}
-                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer ${
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer group min-w-0 ${
                         isSelected
                           ? 'bg-amber-500 text-white border-amber-600 shadow-md ring-2 ring-amber-400 ring-offset-1'
                           : 'bg-amber-50/70 border-amber-200/90 text-slate-800 hover:bg-amber-100 hover:border-amber-300 shadow-xs'
                       }`}
                       title="Clic para filtrar tarjetas En Progreso"
                     >
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
-                          <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? 'bg-white' : 'bg-amber-500'}`} />
-                          <span className={isSelected ? 'text-white' : 'text-amber-900'}>En Progreso</span>
-                        </span>
-                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-md ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-amber-200/70 text-amber-800'
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : 'bg-amber-500'}`} />
+                        <span className={`text-[11px] font-bold uppercase tracking-wider truncate ${
+                          isSelected ? 'text-white' : 'text-amber-900'
                         }`}>
-                          {pct}%
+                          En Progreso
                         </span>
                       </div>
-                      <div className="flex items-baseline justify-between mt-1">
-                        <span className={`text-2xl sm:text-3xl font-black ${isSelected ? 'text-white' : 'text-amber-700'}`}>
+                      <div className="mt-2 flex items-baseline justify-between gap-1 min-w-0">
+                        <span className={`text-2xl sm:text-3xl font-black tracking-tight leading-none ${
+                          isSelected ? 'text-white' : 'text-amber-700'
+                        }`}>
                           {count}
                         </span>
-                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-amber-100' : 'text-slate-500'}`}>
+                        <span className={`text-[10px] font-medium truncate ${
+                          isSelected ? 'text-amber-100' : 'text-slate-500'
+                        }`}>
                           en gestión
                         </span>
                       </div>
@@ -1145,34 +1148,34 @@ export const FiveSCardsPage: React.FC = () => {
                 {(() => {
                   const isSelected = statusFilter === 'Abierto';
                   const count = kpiData.pending;
-                  const pct = kpiData.total > 0 ? Math.round((count / kpiData.total) * 100) : 0;
                   return (
                     <button
                       type="button"
                       onClick={() => handleStatusFilterToggle('Abierto')}
-                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer ${
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between cursor-pointer group min-w-0 ${
                         isSelected
                           ? 'bg-rose-600 text-white border-rose-700 shadow-md ring-2 ring-rose-500 ring-offset-1'
                           : 'bg-rose-50/70 border-rose-200/90 text-slate-800 hover:bg-rose-100 hover:border-rose-300 shadow-xs'
                       }`}
                       title="Clic para filtrar tarjetas Abiertas"
                     >
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
-                          <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? 'bg-white' : 'bg-rose-500'}`} />
-                          <span className={isSelected ? 'text-white' : 'text-rose-900'}>Abierto</span>
-                        </span>
-                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-md ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-rose-200/70 text-rose-800'
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : 'bg-rose-500'}`} />
+                        <span className={`text-[11px] font-bold uppercase tracking-wider truncate ${
+                          isSelected ? 'text-white' : 'text-rose-900'
                         }`}>
-                          {pct}%
+                          Abierto
                         </span>
                       </div>
-                      <div className="flex items-baseline justify-between mt-1">
-                        <span className={`text-2xl sm:text-3xl font-black ${isSelected ? 'text-white' : 'text-rose-700'}`}>
+                      <div className="mt-2 flex items-baseline justify-between gap-1 min-w-0">
+                        <span className={`text-2xl sm:text-3xl font-black tracking-tight leading-none ${
+                          isSelected ? 'text-white' : 'text-rose-700'
+                        }`}>
                           {count}
                         </span>
-                        <span className={`text-[10px] font-semibold ${isSelected ? 'text-rose-100' : 'text-slate-500'}`}>
+                        <span className={`text-[10px] font-medium truncate ${
+                          isSelected ? 'text-rose-100' : 'text-slate-500'
+                        }`}>
                           pendientes
                         </span>
                       </div>
