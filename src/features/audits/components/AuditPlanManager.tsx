@@ -1168,7 +1168,7 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
         <form onSubmit={handleSavePlanItem} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-200 mb-1">
                 N° de Orden (Opcional)
               </label>
               <input
@@ -1177,12 +1177,12 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                 value={formItemNumber}
                 onChange={(e) => setFormItemNumber(e.target.value ? parseInt(e.target.value, 10) : '')}
                 placeholder="Ej: 1, 2, 3..."
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white"
+                className="w-full px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-200 mb-1">
                 Resp. Planificación
               </label>
               <input
@@ -1190,15 +1190,15 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                 value={formPlannerResponsible}
                 onChange={(e) => setFormPlannerResponsible(e.target.value)}
                 placeholder="Nombre de quien planifica (Ej: Nataly Rubilar)"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white"
+                className="w-full px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Área, Puesto o Estación <span className="text-rose-500">*</span>
+              <label className="block text-xs font-bold text-slate-200 mb-1">
+                Área, Puesto o Estación <span className="text-rose-400">*</span>
               </label>
               <input
                 type="text"
@@ -1206,12 +1206,12 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                 value={formArea}
                 onChange={(e) => setFormArea(e.target.value)}
                 placeholder="Ej: Sala de Lavado, Picking, Tavil..."
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white"
+                className="w-full px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-200 mb-1">
                 Resp. del Área
               </label>
               <input
@@ -1219,14 +1219,14 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                 value={formAreaResponsible}
                 onChange={(e) => setFormAreaResponsible(e.target.value)}
                 placeholder="Nombre del responsable del área (Ej: Claudio Muñoz)"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white"
+                className="w-full px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-200 mb-1">
                 Auditor Responsable
               </label>
               <input
@@ -1234,32 +1234,32 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                 value={formAuditor}
                 onChange={(e) => setFormAuditor(e.target.value)}
                 placeholder="Nombre del auditor"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white"
+                className="w-full px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Fecha Programada <span className="text-rose-500">*</span>
+              <label className="block text-xs font-bold text-slate-200 mb-1">
+                Fecha Programada <span className="text-rose-400">*</span>
               </label>
               <input
                 type="date"
                 required
                 value={formPlannedDate}
                 onChange={(e) => setFormPlannedDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white"
+                className="w-full px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 [color-scheme:dark]"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-200 mb-1">
               Frecuencia de Auditoría
             </label>
             <select
               value={formFrequency}
               onChange={(e) => setFormFrequency(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white"
+              className="w-full px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 [color-scheme:dark]"
             >
               <option value="Única">Única (Auditoría extraordinaria o inicial)</option>
               <option value="Semanal">Semanal</option>
@@ -1273,7 +1273,7 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-200 mb-1">
               Alcance & Puntos Clave de Enfoque (Guía Rápida)
             </label>
             <textarea
@@ -1281,13 +1281,13 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
               value={formNotes}
               onChange={(e) => setFormNotes(e.target.value)}
               placeholder="Ej: Foco especial en delimitación de pasillos (2S), tableros de herramientas y control de derrames..."
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white resize-none"
+              className="w-full px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs font-medium text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 resize-none"
             />
           </div>
 
           {/* Adjuntar Guía Específica Opcional */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-200 mb-1">
               Documento Guía Específico (Opcional - PDF / Word / Excel / Imagen)
             </label>
             <input
@@ -1299,10 +1299,10 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
             />
 
             {formGuideName ? (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-cyan-50 border border-cyan-200">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-cyan-950/60 border border-cyan-800">
                 <div className="flex items-center gap-2 min-w-0">
-                  <FileCheck size={16} className="text-cyan-700 shrink-0" />
-                  <span className="text-xs font-bold text-cyan-900 truncate">
+                  <FileCheck size={16} className="text-cyan-400 shrink-0" />
+                  <span className="text-xs font-bold text-cyan-200 truncate">
                     {formGuideName}
                   </span>
                 </div>
@@ -1312,7 +1312,7 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                     setFormGuideUrl('');
                     setFormGuideName('');
                   }}
-                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                  className="p-1 text-slate-400 hover:text-rose-400 rounded transition-colors"
                   title="Quitar documento"
                 >
                   <X size={14} />
@@ -1322,21 +1322,29 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
               <button
                 type="button"
                 onClick={() => itemGuideFileInputRef.current?.click()}
-                className="w-full py-2.5 px-3 border border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-600 flex items-center justify-center gap-2 transition-colors"
+                className="w-full py-2.5 px-3 border border-dashed border-slate-700 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 text-xs font-bold text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-colors"
               >
-                <Upload size={14} />
+                <Upload size={14} className="text-cyan-400" />
                 <span>Adjuntar Guía o Checklist para esta Auditoría</span>
               </button>
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-            <Button variant="ghost" size="sm" type="button" onClick={() => setIsCreateModalOpen(false)}>
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(false)}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition-colors"
+            >
               Cancelar
-            </Button>
-            <Button variant="primary" size="sm" type="submit" isLoading={formIsSubmitting}>
-              {editingItem ? 'Guardar Cambios' : 'Programar en el Plan'}
-            </Button>
+            </button>
+            <button
+              type="submit"
+              disabled={formIsSubmitting}
+              className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-500 active:scale-95 transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <span>{formIsSubmitting ? 'Guardando...' : editingItem ? 'Guardar Cambios' : 'Programar en el Plan'}</span>
+            </button>
           </div>
         </form>
       </Modal>
@@ -1359,17 +1367,17 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
           />
 
           {guide && (
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700">Guía Actual:</span>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-xs font-bold text-slate-200">Guía Actual:</span>
+                <span className="text-[11px] text-slate-400">
                   Subida el {formatDate(guide.uploaded_at)} por {guide.uploaded_by}
                 </span>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-slate-200">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-950/80 border border-slate-800">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <FileText className="text-cyan-600 shrink-0" size={20} />
-                  <span className="text-xs font-bold text-slate-800 truncate" title={guide.file_name}>
+                  <FileText className="text-cyan-400 shrink-0" size={20} />
+                  <span className="text-xs font-bold text-slate-100 truncate" title={guide.file_name}>
                     {guide.file_name}
                   </span>
                 </div>
@@ -1379,7 +1387,7 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                     download={guide.file_name}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-1.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 transition-colors"
+                    className="p-1.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/80 transition-colors"
                     title="Descargar"
                   >
                     <Download size={14} />
@@ -1392,7 +1400,7 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                         toast.success('Guía eliminada');
                       }
                     }}
-                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors"
+                    className="p-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900/80 text-rose-300 border border-rose-800/80 transition-colors"
                     title="Eliminar"
                   >
                     <Trash2 size={14} />
@@ -1404,21 +1412,25 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
 
           <div
             onClick={() => guideFileInputRef.current?.click()}
-            className="border-2 border-dashed border-cyan-400 hover:border-cyan-600 bg-cyan-50/40 hover:bg-cyan-50 rounded-2xl p-6 text-center cursor-pointer transition-all"
+            className="border-2 border-dashed border-cyan-500/60 hover:border-cyan-400 bg-cyan-950/20 hover:bg-cyan-950/40 rounded-2xl p-6 text-center cursor-pointer transition-all"
           >
-            <Upload size={32} className="mx-auto text-cyan-600 mb-2" />
-            <h4 className="text-xs font-bold text-slate-800 mb-1">
+            <Upload size={32} className="mx-auto text-cyan-400 mb-2" />
+            <h4 className="text-xs font-bold text-slate-100 mb-1">
               {guide ? 'Reemplazar por nuevo archivo' : 'Haz clic para seleccionar la Guía de Auditoría'}
             </h4>
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-[11px] text-slate-400 font-medium">
               Soporta PDF, Word (.docx), Excel (.xlsx), CSV o imágenes (hasta 15 MB)
             </p>
           </div>
 
-          <div className="flex items-center justify-end pt-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsGuideModalOpen(false)}>
+          <div className="flex items-center justify-end pt-2 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsGuideModalOpen(false)}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition-colors"
+            >
               Cerrar
-            </Button>
+            </button>
           </div>
         </div>
       </Modal>
@@ -1432,17 +1444,17 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
         maxWidth="4xl"
       >
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-cyan-50/70 border border-cyan-200 rounded-xl text-xs">
-            <div className="text-cyan-950 font-medium">
-              💡 <strong>Formato admitido:</strong> Columnas separadas por tabulador (Excel) o comas:
-              <span className="block text-[11px] text-cyan-800 font-mono mt-0.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-cyan-950/40 border border-cyan-800/80 rounded-xl text-xs">
+            <div className="text-cyan-200 font-medium">
+              💡 <strong className="text-white">Formato admitido:</strong> Columnas separadas por tabulador (Excel) o comas:
+              <span className="block text-[11px] text-cyan-300 font-mono mt-0.5">
                 N° • Resp. Planificación • Área a Visitar • Resp. del Área • Fecha • Auditor • Estado
               </span>
             </div>
             <button
               type="button"
               onClick={handlePasteSampleData}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold text-xs shrink-0 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold text-xs shrink-0 transition-colors shadow-sm"
             >
               <Sparkles size={13} />
               <span>Cargar ejemplo (13 auditorías)</span>
@@ -1455,23 +1467,23 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
               placeholder={`N°\tResp. Planificación\tÁrea a Visitar\tResp. del Área\tFecha Recorrido\tAuditor\tEstado\n1\tNataly Rubilar\tSala de Lavado\tClaudio Muñoz\t15-09-2026\tAriel Mella /Consultor\tRealizada\n2\tNataly Rubilar\tPicking\tCristian Hernandez\t22-09-2026\tFernando Ramos/Ariel Mella\tRealizada\n3\tNataly Rubilar\tEncajado\tSupervisor Picking\t23-09-2026\tClaudio Muñoz/ArielMella\tPor realizar`}
-              className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs text-slate-900 focus:outline-none focus:border-cyan-600 focus:bg-white resize-y shadow-inner leading-relaxed"
+              className="w-full p-3 bg-slate-900/90 border border-slate-700 rounded-xl font-mono text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 resize-y shadow-inner leading-relaxed"
             />
           </div>
 
           {/* Opciones de Importación & Resumen */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-900/80 border border-slate-800 rounded-xl text-xs">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="font-bold text-slate-700">Acción:</span>
+              <span className="font-bold text-slate-200">Acción:</span>
               <label className="inline-flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="radio"
                   name="importMode"
                   checked={pasteImportMode === 'replace'}
                   onChange={() => setPasteImportMode('replace')}
-                  className="text-cyan-600 focus:ring-cyan-500"
+                  className="text-cyan-500 focus:ring-cyan-400 accent-cyan-500"
                 />
-                <span className="font-medium text-slate-800">Reemplazar plan actual</span>
+                <span className="font-medium text-slate-200">Reemplazar plan actual</span>
               </label>
               <label className="inline-flex items-center gap-1.5 cursor-pointer">
                 <input
@@ -1479,22 +1491,22 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                   name="importMode"
                   checked={pasteImportMode === 'append'}
                   onChange={() => setPasteImportMode('append')}
-                  className="text-cyan-600 focus:ring-cyan-500"
+                  className="text-cyan-500 focus:ring-cyan-400 accent-cyan-500"
                 />
-                <span className="font-medium text-slate-800">Agregar al plan existente</span>
+                <span className="font-medium text-slate-200">Agregar al plan existente</span>
               </label>
             </div>
 
             {/* Badges de Detección */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 font-bold text-[11px]">
+              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-700 font-bold text-[11px]">
                 {parsedPasteRows.length} filas
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[11px]">
+              <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold text-[11px]">
                 {parsedPasteRows.filter((r) => r.isValid).length} válidas
               </span>
               {parsedPasteRows.some((r) => !r.isValid) && (
-                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold text-[11px]">
+                <span className="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800 font-bold text-[11px]">
                   {parsedPasteRows.filter((r) => !r.isValid).length} alertas
                 </span>
               )}
@@ -1504,16 +1516,16 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
           {/* Tabla de Previsualización */}
           {parsedPasteRows.length > 0 && (
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-200">
                 <span>Vista Previa de Auditorías Detectadas:</span>
-                <span className="text-[11px] text-slate-500 font-normal">
+                <span className="text-[11px] text-slate-400 font-normal">
                   {parsedPasteRows.filter((r) => r.status === 'completed').length} realizadas • {parsedPasteRows.filter((r) => r.status === 'pending').length} por realizar
                 </span>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto shadow-2xs">
+              <div className="border border-slate-800 rounded-xl overflow-hidden max-h-56 overflow-y-auto shadow-inner bg-slate-900/60">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100 sticky top-0 text-[10px] uppercase font-bold text-slate-600 border-b border-slate-200">
+                  <thead className="bg-slate-950/90 sticky top-0 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-800">
                     <tr>
                       <th className="py-2 px-3">N°</th>
                       <th className="py-2 px-3">Área a Visitar</th>
@@ -1524,36 +1536,36 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                       <th className="py-2 px-3">Estado</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-800/80">
                     {parsedPasteRows.map((row, idx) => (
                       <tr
                         key={idx}
-                        className={row.isValid ? 'hover:bg-slate-50' : 'bg-rose-50/60'}
+                        className={row.isValid ? 'hover:bg-slate-800/50' : 'bg-rose-950/30'}
                       >
-                        <td className="py-2 px-3 font-mono font-bold text-slate-500">
+                        <td className="py-2 px-3 font-mono font-bold text-slate-400">
                           {row.item_number || idx + 1}
                         </td>
-                        <td className="py-2 px-3 font-bold text-slate-900">
-                          {row.area || <span className="text-rose-500 italic">Sin área</span>}
+                        <td className="py-2 px-3 font-bold text-slate-100">
+                          {row.area || <span className="text-rose-400 italic">Sin área</span>}
                         </td>
-                        <td className="py-2 px-3 text-slate-600">
+                        <td className="py-2 px-3 text-slate-300">
                           {row.area_responsible || '-'}
                         </td>
-                        <td className="py-2 px-3 whitespace-nowrap text-slate-700 font-medium">
-                          {row.planned_date ? formatDate(row.planned_date) : <span className="text-rose-500 italic">Fecha inválida</span>}
+                        <td className="py-2 px-3 whitespace-nowrap text-slate-300 font-medium">
+                          {row.planned_date ? formatDate(row.planned_date) : <span className="text-rose-400 italic">Fecha inválida</span>}
                         </td>
-                        <td className="py-2 px-3 text-slate-700">
+                        <td className="py-2 px-3 text-slate-300">
                           {row.auditor || 'Sin auditor'}
                         </td>
-                        <td className="py-2 px-3 text-indigo-600 font-medium">
+                        <td className="py-2 px-3 text-cyan-300 font-medium">
                           {row.planner_responsible || '-'}
                         </td>
                         <td className="py-2 px-3 whitespace-nowrap">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                               row.status === 'completed'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                : 'bg-amber-950 text-amber-300 border border-amber-800'
                             }`}
                           >
                             {row.status === 'completed' ? 'Realizada' : 'Por realizar'}
@@ -1568,21 +1580,23 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
           )}
 
           {/* Botones del Modal */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-            <Button variant="ghost" size="sm" type="button" onClick={() => setIsPasteModalOpen(false)}>
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsPasteModalOpen(false)}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition-colors"
+            >
               Cancelar
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
+            </button>
+            <button
               type="button"
               disabled={parsedPasteRows.filter((r) => r.isValid).length === 0 || isProcessingPaste}
-              isLoading={isProcessingPaste}
               onClick={handleImportPastedAudits}
-              leftIcon={<Check size={14} />}
+              className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-500 active:scale-95 transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50"
             >
-              Importar {parsedPasteRows.filter((r) => r.isValid).length} Auditorías al Plan
-            </Button>
+              <Check size={14} />
+              <span>{isProcessingPaste ? 'Importando...' : `Importar ${parsedPasteRows.filter((r) => r.isValid).length} Auditorías al Plan`}</span>
+            </button>
           </div>
         </div>
       </Modal>
