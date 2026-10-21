@@ -248,8 +248,9 @@ export const fiveSService = {
       }
 
       // Check if it's an offline card
-      if (cardId.startsWith('off_')) {
-        await db.cards.update(cardId, payload as any);
+      const idStr = String(cardId);
+      if (idStr.startsWith('off_')) {
+        await db.cards.update(idStr, payload as any);
         return { success: true };
       }
 
@@ -268,10 +269,11 @@ export const fiveSService = {
   /**
    * Delete card
    */
-  async deleteCard(cardId: string): Promise<{ success: boolean; error?: string }> {
+  async deleteCard(cardId: string | number): Promise<{ success: boolean; error?: string }> {
     try {
-      if (cardId.startsWith('off_')) {
-        await db.cards.delete(cardId);
+      const idStr = String(cardId);
+      if (idStr.startsWith('off_')) {
+        await db.cards.delete(idStr);
         return { success: true };
       }
 

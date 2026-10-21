@@ -28,6 +28,7 @@ import {
   X,
   ExternalLink,
   ClipboardPaste,
+  RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatDate } from '../../../lib/utils';
@@ -300,6 +301,24 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
     }
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const handleSyncWithAudits = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await auditPlanService.syncPlansWithAudits(companyId);
+      if (res.syncedCount > 0) {
+        toast.success(`${res.syncedCount} auditoría(s) vinculada(s) y actualizadas en el plan`);
+      } else {
+        toast.success('El plan ya está al día con las auditorías realizadas');
+      }
+      await loadPlanData();
+    } catch (err: any) {
+      toast.error('Error al sincronizar auditorías');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     loadPlanData();
   }, [companyId]);
@@ -435,7 +454,7 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
 
     const res = await auditPlanService.togglePlanItemStatus(item.id, nextStatus);
     if (res.success && res.updated) {
-      setItems((prev) => prev.map((i) => (i.id === item.id ? res.updated! : i)));
+      setItems((prev) => prev.map((i) => (String(i.id) === String(item.id) ? res.updated! : i)));
       toast.success(`Auditoría en "${item.area}" ${actionText}`, {
         icon: nextStatus === 'completed' ? '✅' : '⏳',
       });
@@ -522,7 +541,7 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
       const res = await auditPlanService.deletePlanItem(item.id);
       if (res.success) {
         toast.success('Auditoría retirada del plan');
-        setItems((prev) => prev.filter((i) => i.id !== item.id));
+        setItems((prev) => prev.filter((i) => String(i.id) !== String(item.id)));
       } else {
         toast.error(res.error || 'Error al eliminar');
       }
@@ -810,8 +829,17 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
             )}
           </div>
 
-          {/* Opciones de Plantilla y Carga */}
+          {/* Opciones de Plantilla, Sincronización y Carga */}
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleSyncWithAudits}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-300 rounded-xl transition-colors shadow-2xs disabled:opacity-50"
+              title="Sincronizar y vincular automáticamente auditorías realizadas con este plan"
+            >
+              <RefreshCw size={13} className={`text-cyan-700 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>
+            </button>
             <button
               onClick={() => setIsPasteModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors shadow-2xs"

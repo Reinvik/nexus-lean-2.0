@@ -4,6 +4,29 @@ import type { AuditPlanItem, AuditPlanCompanyGuide } from '../../../types';
 const STORAGE_PLAN_KEY = 'nexus_audit_5s_plans';
 const STORAGE_GUIDE_KEY = 'nexus_audit_5s_company_guide';
 
+/**
+ * Normaliza nombres de áreas eliminando tildes, mayúsculas, espacios y palabras conectoras (de, del, la, el, cd, etc.)
+ */
+export function normalizeAreaName(name: string): string {
+  return (name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(de|del|la|el|los|las|cd)\b/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+/**
+ * Verifica si dos nombres de área corresponden a la misma zona operativa
+ */
+export function isAreaMatch(planArea: string, auditArea: string): boolean {
+  const norm1 = normalizeAreaName(planArea);
+  const norm2 = normalizeAreaName(auditArea);
+  if (!norm1 || !norm2) return false;
+  return norm1 === norm2 || norm1.includes(norm2) || norm2.includes(norm1);
+}
+
 // Auditorías modelo iniciales basadas en el plan real de planta
 const INITIAL_DEMO_PLANS: Omit<AuditPlanItem, 'id' | 'company_id' | 'created_at'>[] = [
   {
@@ -159,9 +182,18 @@ export const auditPlanService = {
    * Obtiene todos los ítems planificados para la empresa
    */
   async getPlanItems(companyId?: string | null): Promise<AuditPlanItem[]> {
+    // 1. Ejecutar auto-sincronización con auditorías reales si hay conexión
+    if (navigator.onLine) {
+      try {
+        await this.syncPlansWithAudits(companyId);
+      } catch (syncErr) {
+        console.warn('Auto sync audit plans check:', syncErr);
+      }
+    }
+
     let items: AuditPlanItem[] = [];
 
-    // 1. Intentar consultar desde Supabase
+    // 2. Intentar consultar desde Supabase
     if (navigator.onLine) {
       try {
         let query = supabase
@@ -176,7 +208,7 @@ export const auditPlanService = {
         const { data, error } = await query;
         if (!error && data && data.length > 0) {
           items = data.map((d: any) => ({
-            id: d.id,
+            id: String(d.id),
             company_id: d.company_id,
             item_number: d.item_number !== undefined && d.item_number !== null ? Number(d.item_number) : undefined,
             planner_responsible: d.planner_responsible || undefined,
@@ -188,7 +220,7 @@ export const auditPlanService = {
             status: d.status === 'completed' ? 'completed' : 'pending',
             completed_date: d.completed_date || null,
             score: d.score !== undefined && d.score !== null ? Number(d.score) : null,
-            completed_audit_id: d.completed_audit_id || null,
+            completed_audit_id: d.completed_audit_id ? String(d.completed_audit_id) : null,
             guide_url: d.guide_url || null,
             guide_name: d.guide_name || null,
             notes: d.notes || '',
@@ -201,7 +233,7 @@ export const auditPlanService = {
       }
     }
 
-    // 2. Si no hubo datos remotos o offline, cargar desde localStorage
+    // 3. Si no hubo datos remotos o offline, cargar desde localStorage
     if (items.length === 0) {
       try {
         const stored = localStorage.getItem(STORAGE_PLAN_KEY);
@@ -216,7 +248,7 @@ export const auditPlanService = {
       }
     }
 
-    // 3. Si aún no hay datos para esta empresa, inicializar con plantilla modelo amigable
+    // 4. Si aún no hay datos para esta empresa, inicializar con plantilla modelo amigable
     if (items.length === 0) {
       const targetCompany = companyId && companyId !== 'all' ? companyId : 'global';
       items = INITIAL_DEMO_PLANS.map((demo, idx) => ({
@@ -243,10 +275,195 @@ export const auditPlanService = {
   },
 
   /**
+   * Sincroniza ítems pendientes del plan con auditorías reales registradas en audit_5s
+   */
+  async syncPlansWithAudits(companyId?: string | null): Promise<{
+    syncedCount: number;
+    updatedItems: AuditPlanItem[];
+  }> {
+    if (!navigator.onLine) {
+      return { syncedCount: 0, updatedItems: [] };
+    }
+
+    try {
+      // 1. Obtener los planes
+      let plansQuery = supabase.from('audit_5s_plans').select('*');
+      if (companyId && companyId !== 'all') {
+        plansQuery = plansQuery.eq('company_id', companyId);
+      }
+      const { data: plansData, error: plansErr } = await plansQuery;
+      if (plansErr || !plansData || plansData.length === 0) {
+        return { syncedCount: 0, updatedItems: [] };
+      }
+
+      // 2. Obtener las auditorías reales
+      let auditsQuery = supabase
+        .from('audit_5s')
+        .select('id, area, auditor, audit_date, total_score, status')
+        .order('audit_date', { ascending: false });
+      if (companyId && companyId !== 'all') {
+        auditsQuery = auditsQuery.eq('company_id', companyId);
+      }
+      const { data: auditsData, error: auditsErr } = await auditsQuery;
+      if (auditsErr || !auditsData || auditsData.length === 0) {
+        return { syncedCount: 0, updatedItems: [] };
+      }
+
+      // Filtrar auditorías válidas
+      const validAudits = auditsData.filter((a) => {
+        const st = (a.status || '').toLowerCase();
+        return st !== 'programada' && st !== 'scheduled';
+      });
+
+      let syncedCount = 0;
+      const updatedItems: AuditPlanItem[] = [];
+
+      for (const plan of plansData) {
+        // Buscar si existe una auditoría realizada en esa misma área
+        const match = validAudits.find((aud) => isAreaMatch(plan.area, aud.area));
+
+        if (match) {
+          const rawScore = Number(match.total_score) || 0;
+          const scorePercent = rawScore > 0 && rawScore <= 5 ? Math.round((rawScore / 5) * 100) : Math.round(rawScore);
+          const needsUpdate =
+            plan.status !== 'completed' ||
+            !plan.completed_audit_id ||
+            String(plan.completed_audit_id) !== String(match.id) ||
+            plan.score === null ||
+            plan.score === undefined;
+
+          if (needsUpdate) {
+            const completedDate = match.audit_date || plan.planned_date;
+            const auditorName = match.auditor && match.auditor !== 'Sin auditor' ? match.auditor : plan.auditor;
+
+            const { error: updErr } = await supabase
+              .from('audit_5s_plans')
+              .update({
+                status: 'completed',
+                completed_date: completedDate,
+                auditor: auditorName,
+                score: scorePercent,
+                completed_audit_id: String(match.id),
+              })
+              .eq('id', plan.id);
+
+            if (!updErr) {
+              syncedCount++;
+              updatedItems.push({
+                ...plan,
+                id: String(plan.id),
+                status: 'completed',
+                completed_date: completedDate,
+                auditor: auditorName,
+                score: scorePercent,
+                completed_audit_id: String(match.id),
+              });
+            }
+          }
+        }
+      }
+
+      // Sincronizar en localStorage
+      if (updatedItems.length > 0) {
+        try {
+          const stored = localStorage.getItem(STORAGE_PLAN_KEY);
+          if (stored) {
+            let list: AuditPlanItem[] = JSON.parse(stored);
+            updatedItems.forEach((upd) => {
+              const idx = list.findIndex((i) => String(i.id) === String(upd.id));
+              if (idx >= 0) {
+                list[idx] = { ...list[idx], ...upd };
+              }
+            });
+            localStorage.setItem(STORAGE_PLAN_KEY, JSON.stringify(list));
+          }
+        } catch (e) {
+          console.warn('Error syncing updated items to localStorage:', e);
+        }
+      }
+
+      return { syncedCount, updatedItems };
+    } catch (err) {
+      console.error('Error in syncPlansWithAudits:', err);
+      return { syncedCount: 0, updatedItems: [] };
+    }
+  },
+
+  /**
+   * Vincula automáticamente una auditoría con su respectivo ítem del plan
+   */
+  async linkAuditToPlan(audit: {
+    id: string | number;
+    companyId?: string | null;
+    area: string;
+    auditor?: string;
+    auditDate?: string;
+    totalScore?: number;
+  }): Promise<boolean> {
+    try {
+      const rawScore = Number(audit.totalScore) || 0;
+      const scorePercent = rawScore > 0 && rawScore <= 5 ? Math.round((rawScore / 5) * 100) : Math.round(rawScore);
+      const auditDate = audit.auditDate || new Date().toISOString().split('T')[0];
+
+      if (navigator.onLine) {
+        let query = supabase.from('audit_5s_plans').select('*');
+        if (audit.companyId && audit.companyId !== 'all') {
+          query = query.eq('company_id', audit.companyId);
+        }
+        const { data: plans } = await query;
+        if (plans && plans.length > 0) {
+          const match = plans.find((p: any) => isAreaMatch(p.area, audit.area));
+          if (match) {
+            await supabase
+              .from('audit_5s_plans')
+              .update({
+                status: 'completed',
+                completed_date: auditDate,
+                auditor: audit.auditor || match.auditor,
+                score: scorePercent,
+                completed_audit_id: String(audit.id),
+              })
+              .eq('id', match.id);
+          }
+        }
+      }
+
+      // LocalStorage
+      const stored = localStorage.getItem(STORAGE_PLAN_KEY);
+      if (stored) {
+        try {
+          const list: AuditPlanItem[] = JSON.parse(stored);
+          const matchIdx = list.findIndex((p) => isAreaMatch(p.area, audit.area));
+          if (matchIdx >= 0) {
+            list[matchIdx] = {
+              ...list[matchIdx],
+              status: 'completed',
+              completed_date: auditDate,
+              auditor: audit.auditor || list[matchIdx].auditor,
+              score: scorePercent,
+              completed_audit_id: String(audit.id),
+            };
+            localStorage.setItem(STORAGE_PLAN_KEY, JSON.stringify(list));
+          }
+        } catch (e) {
+          console.warn('Error updating local storage plan for new audit:', e);
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.warn('Error linking audit to plan:', err);
+      return false;
+    }
+  },
+
+  /**
    * Guarda o actualiza un ítem del plan de auditoría
    */
   async savePlanItem(item: AuditPlanItem): Promise<{ success: boolean; data?: AuditPlanItem; error?: string }> {
     try {
+      const isTemp = String(item.id).startsWith('plan_');
+
       // 1. Intentar guardar en Supabase
       if (navigator.onLine) {
         try {
@@ -254,7 +471,7 @@ export const auditPlanService = {
             .from('audit_5s_plans')
             .upsert([
               {
-                id: item.id.startsWith('plan_') ? undefined : item.id,
+                id: isTemp ? undefined : item.id,
                 company_id: item.company_id && item.company_id !== 'global' ? item.company_id : null,
                 item_number: item.item_number || null,
                 planner_responsible: item.planner_responsible || null,
@@ -266,7 +483,7 @@ export const auditPlanService = {
                 status: item.status,
                 completed_date: item.completed_date,
                 score: item.score,
-                completed_audit_id: item.completed_audit_id,
+                completed_audit_id: item.completed_audit_id ? String(item.completed_audit_id) : null,
                 guide_url: item.guide_url,
                 guide_name: item.guide_name,
                 notes: item.notes,
@@ -277,7 +494,7 @@ export const auditPlanService = {
             .single();
 
           if (!error && data) {
-            item = { ...item, id: data.id };
+            item = { ...item, id: String(data.id) };
           }
         } catch (supabaseErr) {
           console.warn('Supabase upsert failed, continuing with local storage:', supabaseErr);
@@ -287,7 +504,7 @@ export const auditPlanService = {
       // 2. Guardar en localStorage
       const stored = localStorage.getItem(STORAGE_PLAN_KEY);
       let list: AuditPlanItem[] = stored ? JSON.parse(stored) : [];
-      const index = list.findIndex((i) => i.id === item.id);
+      const index = list.findIndex((i) => String(i.id) === String(item.id));
 
       if (index >= 0) {
         list[index] = item;
@@ -384,30 +601,31 @@ export const auditPlanService = {
    * Cambia con 1 solo clic el estado entre 'pending' y 'completed'
    */
   async togglePlanItemStatus(
-    id: string,
+    id: string | number,
     newStatus: 'pending' | 'completed',
     score?: number | null,
-    auditId?: string | null
+    auditId?: string | number | null
   ): Promise<{ success: boolean; updated?: AuditPlanItem; error?: string }> {
     try {
+      const idStr = String(id);
       const stored = localStorage.getItem(STORAGE_PLAN_KEY);
       let list: AuditPlanItem[] = stored ? JSON.parse(stored) : [];
-      const index = list.findIndex((i) => i.id === id);
+      const index = list.findIndex((i) => String(i.id) === idStr);
 
       if (index >= 0) {
         const item = list[index];
         const updated: AuditPlanItem = {
           ...item,
           status: newStatus,
-          completed_date: newStatus === 'completed' ? new Date().toISOString().split('T')[0] : null,
+          completed_date: newStatus === 'completed' ? (item.completed_date || new Date().toISOString().split('T')[0]) : null,
           score: score !== undefined ? score : item.score,
-          completed_audit_id: auditId !== undefined ? auditId : item.completed_audit_id,
+          completed_audit_id: auditId !== undefined ? (auditId ? String(auditId) : null) : item.completed_audit_id,
         };
         list[index] = updated;
         localStorage.setItem(STORAGE_PLAN_KEY, JSON.stringify(list));
 
         // Actualizar en Supabase si está online
-        if (navigator.onLine && !id.startsWith('plan_seed_')) {
+        if (navigator.onLine && !idStr.startsWith('plan_seed_')) {
           try {
             await supabase
               .from('audit_5s_plans')
@@ -435,16 +653,17 @@ export const auditPlanService = {
   /**
    * Elimina un ítem del plan
    */
-  async deletePlanItem(id: string): Promise<{ success: boolean; error?: string }> {
+  async deletePlanItem(id: string | number): Promise<{ success: boolean; error?: string }> {
     try {
+      const idStr = String(id);
       const stored = localStorage.getItem(STORAGE_PLAN_KEY);
       if (stored) {
         let list: AuditPlanItem[] = JSON.parse(stored);
-        list = list.filter((i) => i.id !== id);
+        list = list.filter((i) => String(i.id) !== idStr);
         localStorage.setItem(STORAGE_PLAN_KEY, JSON.stringify(list));
       }
 
-      if (navigator.onLine && !id.startsWith('plan_seed_')) {
+      if (navigator.onLine && !idStr.startsWith('plan_seed_')) {
         try {
           await supabase.from('audit_5s_plans').delete().eq('id', id);
         } catch (e) {

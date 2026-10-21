@@ -474,13 +474,13 @@ export const AuditsPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string | number) => {
     if (window.confirm('¿Seguro que deseas eliminar este registro de auditoría?')) {
       const res = await auditService.deleteAudit(id);
       if (res.success) {
         toast.success('Auditoría eliminada');
-        setAudits((prev) => prev.filter((a) => a.id !== id));
-        if (selectedAuditId === id) {
+        setAudits((prev) => prev.filter((a) => String(a.id) !== String(id)));
+        if (selectedAuditId && String(selectedAuditId) === String(id)) {
           setSelectedAuditId(null);
         }
       } else {
@@ -1754,6 +1754,17 @@ export const AuditsPage: React.FC = () => {
               result.auditId
             );
             toast.success(`Auditoría del plan en "${result.area}" marcada como realizada (${result.score}%)`, {
+              icon: '🎉',
+            });
+          } else {
+            await auditPlanService.linkAuditToPlan({
+              id: result.auditId || '',
+              companyId: effectiveCompanyId,
+              area: result.area,
+              auditor: result.auditor,
+              totalScore: result.score,
+            });
+            toast.success(`Auditoría en "${result.area}" registrada (${result.score}%)`, {
               icon: '🎉',
             });
           }

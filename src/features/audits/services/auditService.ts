@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { db } from '../../../lib/db';
 import type { Audit5S, Audit5SEntry } from '../../../types';
+import { auditPlanService } from './auditPlanService';
 
 export const AUDIT_CRITERIA: Record<
   'S1' | 'S2' | 'S3' | 'S4' | 'S5',
@@ -92,7 +93,7 @@ export const auditService = {
               return true;
             })
             .map((d: any) => ({
-              id: d.id,
+              id: String(d.id),
               company_id: d.company_id,
               title: d.title || `Auditoría 5S - ${d.area || 'General'}`,
               area: d.area || 'General',
@@ -184,7 +185,21 @@ export const auditService = {
           if (entriesError) console.warn('Error inserting audit entries:', entriesError);
         }
 
-        return { success: true, auditId: audit.id };
+        // Auto-vincular la auditoría realizada con el plan de auditorías
+        try {
+          await auditPlanService.linkAuditToPlan({
+            id: audit.id,
+            companyId: auditData.company_id,
+            area: auditData.area,
+            auditor: auditData.auditor,
+            auditDate: auditData.audit_date,
+            totalScore: auditData.total_score,
+          });
+        } catch (planSyncErr) {
+          console.warn('Auto link plan warning:', planSyncErr);
+        }
+
+        return { success: true, auditId: String(audit.id) };
       } catch (err: any) {
         console.warn('Online audit creation failed, saving offline:', err);
       }
@@ -217,10 +232,11 @@ export const auditService = {
     }
   },
 
-  async deleteAudit(id: string): Promise<{ success: boolean; error?: string }> {
+  async deleteAudit(id: string | number): Promise<{ success: boolean; error?: string }> {
     try {
-      if (id.startsWith('audit_off_')) {
-        await db.audits.delete(id);
+      const idStr = String(id);
+      if (idStr.startsWith('audit_off_')) {
+        await db.audits.delete(idStr);
         return { success: true };
       }
 
