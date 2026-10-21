@@ -920,7 +920,7 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
               <span>Cronograma & Checklist de Auditorías</span>
             </h3>
             <p className="text-xs text-slate-500 font-medium">
-              Haz clic en el estado para cambiar entre Realizada y Pendiente al instante, o ejecuta la evaluación 5S completa.
+              Validación Estricta 5S: Las auditorías realizadas validan la programación si coinciden en el <strong className="text-slate-700">mismo mes</strong>, <strong className="text-slate-700">misma zona</strong> y <strong className="text-slate-700">mismo auditor</strong>.
             </p>
           </div>
           <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-mono">
@@ -974,7 +974,11 @@ export const AuditPlanManager: React.FC<AuditPlanManagerProps> = ({
                                 ? 'bg-rose-100 text-rose-950 border-rose-300 hover:bg-rose-200 animate-pulse'
                                 : 'bg-amber-100 text-amber-950 border-amber-300 hover:bg-amber-200'
                             }`}
-                            title="Haz clic para cambiar el estado al instante"
+                            title={
+                              isCompleted && item.completed_audit_id
+                                ? `Validada con auditoría #${item.completed_audit_id} (Mismo mes, zona y auditor). Haz clic para alternar.`
+                                : 'Haz clic para cambiar el estado al instante'
+                            }
                           >
                             {isCompleted ? (
                               <>

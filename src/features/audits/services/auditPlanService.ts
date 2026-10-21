@@ -27,6 +27,97 @@ export function isAreaMatch(planArea: string, auditArea: string): boolean {
   return norm1 === norm2 || norm1.includes(norm2) || norm2.includes(norm1);
 }
 
+/**
+ * Normaliza nombres de personas/auditores para comparación flexible:
+ * - Convierte a minúsculas, quita tildes y caracteres no alfanuméricos.
+ * - Trata como equivalentes 'ariel mella' y 'ariel mauricio' (Ariel Mauricio Mella).
+ * - Elimina títulos como 'consultor', 'supervisor', 'supervisores', 'jefe', 'jefes de turno'.
+ */
+export function normalizeAuditorName(name: string): string {
+  let clean = (name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(consultor|supervisor|supervisores|jefe|jefes|de|turno|todos)\b/g, '')
+    .replace(/[^a-z0-9]/g, ' ')
+    .trim();
+
+  // Caso especial CIAL: Ariel Mauricio Mella aparece como "Ariel Mauricio" o "Ariel Mella"
+  if (clean.includes('ariel') && (clean.includes('mella') || clean.includes('mauricio'))) {
+    clean = clean.replace(/mauricio|mella/g, '').trim() + ' ariel_mella';
+  }
+
+  return clean;
+}
+
+/**
+ * Comprueba si el auditor que ejecutó la auditoría coincide con el(los) auditor(es) asignado(s) en el plan
+ */
+export function isAuditorMatch(planAuditor: string, auditAuditor: string): boolean {
+  if (!planAuditor || !auditAuditor) return false;
+
+  const rawPlan = planAuditor.toLowerCase();
+  // Si en el plan dice "todos", cualquier auditor vale
+  if (rawPlan.includes('todos')) return true;
+
+  const normAudit = normalizeAuditorName(auditAuditor);
+  if (!normAudit) return false;
+
+  // El plan puede tener múltiples auditores separados por '/', ',', ';', 'y'
+  const plannedCandidates = planAuditor
+    .split(/[/,;y\\]+/)
+    .map((c) => normalizeAuditorName(c))
+    .filter((c) => c.length > 0);
+
+  return plannedCandidates.some((candidate) => {
+    if (candidate === normAudit) return true;
+    if (candidate.includes(normAudit) || normAudit.includes(candidate)) return true;
+
+    // Comparar palabras significativas de al menos 4 caracteres (nombre o apellido)
+    const candWords = candidate.split(/\s+/).filter((w) => w.length >= 4);
+    const auditWords = normAudit.split(/\s+/).filter((w) => w.length >= 4);
+    return candWords.some((cw) => auditWords.includes(cw));
+  });
+}
+
+/**
+ * Comprueba si dos fechas corresponden al mismo mes y año (YYYY-MM)
+ */
+export function isSameMonthAndYear(date1?: string | null, date2?: string | null): boolean {
+  if (!date1 || !date2) return false;
+  const ym1 = String(date1).trim().substring(0, 7);
+  const ym2 = String(date2).trim().substring(0, 7);
+  if (ym1.length < 7 || ym2.length < 7) return false;
+  return ym1 === ym2;
+}
+
+/**
+ * Regla de negocio estricta:
+ * Una auditoría realizada solo valida una programación si coincide en:
+ * 1. Mismo mes y año
+ * 2. Misma zona/área
+ * 3. Mismo auditor asignado
+ * "si no, no vale."
+ */
+export function isAuditPlanMatch(
+  plan: { area: string; planned_date: string; auditor: string },
+  audit: { area: string; audit_date: string; auditor: string }
+): boolean {
+  // 1. Mismo mes y año (si no, no vale)
+  if (!isSameMonthAndYear(plan.planned_date, audit.audit_date)) {
+    return false;
+  }
+  // 2. Misma zona/área (si no, no vale)
+  if (!isAreaMatch(plan.area, audit.area)) {
+    return false;
+  }
+  // 3. Mismo auditor (si no, no vale)
+  if (!isAuditorMatch(plan.auditor, audit.auditor)) {
+    return false;
+  }
+  return true;
+}
+
 // Auditorías modelo iniciales basadas en el plan real de planta
 const INITIAL_DEMO_PLANS: Omit<AuditPlanItem, 'id' | 'company_id' | 'created_at'>[] = [
   {
@@ -319,8 +410,14 @@ export const auditPlanService = {
       const updatedItems: AuditPlanItem[] = [];
 
       for (const plan of plansData) {
-        // Buscar si existe una auditoría realizada en esa misma área
-        const match = validAudits.find((aud) => isAreaMatch(plan.area, aud.area));
+        // Regla de Negocio Estricta:
+        // Una auditoría realizada solo valida una programación si coincide en mismo mes, zona y auditor ("si no, no vale")
+        const match = validAudits.find((aud) =>
+          isAuditPlanMatch(
+            { area: plan.area, planned_date: plan.planned_date, auditor: plan.auditor },
+            { area: aud.area, audit_date: aud.audit_date, auditor: aud.auditor }
+          )
+        );
 
         if (match) {
           const rawScore = Number(match.total_score) || 0;
@@ -359,6 +456,35 @@ export const auditPlanService = {
                 completed_audit_id: String(match.id),
               });
             }
+          }
+        } else if (plan.completed_audit_id) {
+          // Si el plan tenía una auditoría vinculada que NO cumple las 3 reglas (mes, zona, auditor), desvincularla ("si no, no vale")
+          const linkedAudit = validAudits.find((a) => String(a.id) === String(plan.completed_audit_id));
+          if (
+            linkedAudit &&
+            !isAuditPlanMatch(
+              { area: plan.area, planned_date: plan.planned_date, auditor: plan.auditor },
+              { area: linkedAudit.area, audit_date: linkedAudit.audit_date, auditor: linkedAudit.auditor }
+            )
+          ) {
+            await supabase
+              .from('audit_5s_plans')
+              .update({
+                status: 'pending',
+                completed_date: null,
+                score: null,
+                completed_audit_id: null,
+              })
+              .eq('id', plan.id);
+
+            updatedItems.push({
+              ...plan,
+              id: String(plan.id),
+              status: 'pending',
+              completed_date: null,
+              score: null,
+              completed_audit_id: null,
+            });
           }
         }
       }
@@ -412,7 +538,12 @@ export const auditPlanService = {
         }
         const { data: plans } = await query;
         if (plans && plans.length > 0) {
-          const match = plans.find((p: any) => isAreaMatch(p.area, audit.area));
+          const match = plans.find((p: any) =>
+            isAuditPlanMatch(
+              { area: p.area, planned_date: p.planned_date, auditor: p.auditor },
+              { area: audit.area, audit_date: auditDate, auditor: audit.auditor || '' }
+            )
+          );
           if (match) {
             await supabase
               .from('audit_5s_plans')
@@ -433,7 +564,12 @@ export const auditPlanService = {
       if (stored) {
         try {
           const list: AuditPlanItem[] = JSON.parse(stored);
-          const matchIdx = list.findIndex((p) => isAreaMatch(p.area, audit.area));
+          const matchIdx = list.findIndex((p) =>
+            isAuditPlanMatch(
+              { area: p.area, planned_date: p.planned_date, auditor: p.auditor },
+              { area: audit.area, audit_date: auditDate, auditor: audit.auditor || '' }
+            )
+          );
           if (matchIdx >= 0) {
             list[matchIdx] = {
               ...list[matchIdx],
