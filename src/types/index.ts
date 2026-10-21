@@ -119,7 +119,10 @@ export interface Audit5S {
 export interface AuditPlanItem {
   id: string;
   company_id: string;
+  item_number?: number;
+  planner_responsible?: string;
   area: string;
+  area_responsible?: string;
   auditor: string;
   planned_date: string; // YYYY-MM-DD
   frequency?: 'Única' | 'Semanal' | 'Quincenal' | 'Mensual' | 'Bimestral' | 'Trimestral' | 'Semestral' | 'Anual';

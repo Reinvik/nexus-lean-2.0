@@ -4,41 +4,153 @@ import type { AuditPlanItem, AuditPlanCompanyGuide } from '../../../types';
 const STORAGE_PLAN_KEY = 'nexus_audit_5s_plans';
 const STORAGE_GUIDE_KEY = 'nexus_audit_5s_company_guide';
 
-// Auditorías modelo iniciales en caso de no existir datos aún
+// Auditorías modelo iniciales basadas en el plan real de planta
 const INITIAL_DEMO_PLANS: Omit<AuditPlanItem, 'id' | 'company_id' | 'created_at'>[] = [
   {
-    area: 'Línea de Ensamble y Mecanizado',
-    auditor: 'Carlos Navarrete',
-    planned_date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-    frequency: 'Mensual',
-    status: 'pending',
-    notes: 'Verificar delimitación visual de pasillos, puestos de trabajo (2S) y herramientas sin uso (1S).',
-  },
-  {
-    area: 'Bodega de Repuestos & Insumos',
-    auditor: 'Mariana Soto',
-    planned_date: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
-    frequency: 'Quincenal',
-    status: 'pending',
-    notes: 'Revisar control de inventario visual, rotulación de estanterías y orden de materiales pesados.',
-  },
-  {
-    area: 'Taller Central de Mantenimiento',
-    auditor: 'Felipe Alarcón',
-    planned_date: new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0],
-    frequency: 'Mensual',
+    item_number: 1,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Sala de Lavado',
+    area_responsible: 'Claudio Muñoz',
+    planned_date: '2026-09-15',
+    auditor: 'Ariel Mella /Consultor',
     status: 'completed',
-    completed_date: new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0],
-    score: 88,
-    notes: 'Auditoría mensual estándar completada con éxito. Excelente orden en tableros de sombra.',
+    completed_date: '2026-09-15',
+    frequency: 'Mensual',
+    notes: 'Auditoría inicial de Sala de Lavado',
   },
   {
-    area: 'Zona de Embarque & Logística',
-    auditor: 'Claudia Riquelme',
-    planned_date: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0],
-    frequency: 'Trimestral',
+    item_number: 2,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Picking',
+    area_responsible: 'Cristian Hernandez',
+    planned_date: '2026-09-22',
+    auditor: 'Fernando Ramos/Ariel Mella',
+    status: 'completed',
+    completed_date: '2026-09-22',
+    frequency: 'Mensual',
+    notes: 'Auditoría realizada en área Picking',
+  },
+  {
+    item_number: 3,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Encajado',
+    area_responsible: 'Supervisor Picking',
+    planned_date: '2026-09-23',
+    auditor: 'Claudio Muñoz/ArielMella',
     status: 'pending',
-    notes: 'Auditoría enfocada en 3S (Limpieza de pisos) y 4S (Estandarización de señalética de seguridad).',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Encajado',
+  },
+  {
+    item_number: 4,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Oficinas',
+    area_responsible: 'Todos',
+    planned_date: '2026-09-24',
+    auditor: 'Nataly Rubilar/Ariel Mella /Consultor',
+    status: 'completed',
+    completed_date: '2026-09-24',
+    frequency: 'Mensual',
+    notes: 'Auditoría en Oficinas administrativas',
+  },
+  {
+    item_number: 5,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Logistica Inversa',
+    area_responsible: 'Fernando Ramos',
+    planned_date: '2026-09-25',
+    auditor: 'Airen Gonzalez /ArielMella',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Logística Inversa',
+  },
+  {
+    item_number: 6,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Bodega UULL',
+    area_responsible: 'Claudio Muñoz',
+    planned_date: '2026-10-16',
+    auditor: 'Ariel Mella /Consultor',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Bodega UULL',
+  },
+  {
+    item_number: 7,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Sala Baterias',
+    area_responsible: 'Walter Sanchez',
+    planned_date: '2026-10-19',
+    auditor: 'Fernando Ramos/Ariel Mella',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Sala de Baterías',
+  },
+  {
+    item_number: 8,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Canal dinamico',
+    area_responsible: 'Claudio Muñoz',
+    planned_date: '2026-10-20',
+    auditor: 'Claudio Muñoz/ArielMella',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Canal Dinámico',
+  },
+  {
+    item_number: 9,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Despacho',
+    area_responsible: 'Supervisores Despacho',
+    planned_date: '2026-10-21',
+    auditor: 'Airen Gonzalez /ArielMella',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Despacho',
+  },
+  {
+    item_number: 10,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Picking',
+    area_responsible: 'Supervisores Picking',
+    planned_date: '2026-10-22',
+    auditor: 'Nataly Rubilar/Ariel Mella /Consultor',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Picking',
+  },
+  {
+    item_number: 11,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Recepción',
+    area_responsible: 'Supervisores Recepción',
+    planned_date: '2026-10-23',
+    auditor: 'Ariel Mella /Consultor',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Recepción',
+  },
+  {
+    item_number: 12,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Bodega Insumos',
+    area_responsible: 'Jefes de Turno',
+    planned_date: '2026-10-26',
+    auditor: 'Fernando Ramos/Ariel Mella',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Bodega Insumos',
+  },
+  {
+    item_number: 13,
+    planner_responsible: 'Nataly Rubilar',
+    area: 'Tavil',
+    area_responsible: 'Claudio Muñoz',
+    planned_date: '2026-10-27',
+    auditor: 'Claudio Muñoz/ArielMella',
+    status: 'pending',
+    frequency: 'Mensual',
+    notes: 'Por realizar en Tavil',
   },
 ];
 
@@ -66,7 +178,10 @@ export const auditPlanService = {
           items = data.map((d: any) => ({
             id: d.id,
             company_id: d.company_id,
+            item_number: d.item_number !== undefined && d.item_number !== null ? Number(d.item_number) : undefined,
+            planner_responsible: d.planner_responsible || undefined,
             area: d.area,
+            area_responsible: d.area_responsible || undefined,
             auditor: d.auditor || 'Sin auditor',
             planned_date: d.planned_date,
             frequency: d.frequency || 'Mensual',
@@ -81,8 +196,8 @@ export const auditPlanService = {
           }));
         }
       } catch (err) {
-        // Tabla posiblemente no creada aún en supabase, fallback suave
-        console.warn('Supabase audit_5s_plans table check:', err);
+        // Fallback suave si hay desconexión
+        console.warn('Supabase audit_5s_plans query check:', err);
       }
     }
 
@@ -140,8 +255,11 @@ export const auditPlanService = {
             .upsert([
               {
                 id: item.id.startsWith('plan_') ? undefined : item.id,
-                company_id: item.company_id,
+                company_id: item.company_id && item.company_id !== 'global' ? item.company_id : null,
+                item_number: item.item_number || null,
+                planner_responsible: item.planner_responsible || null,
                 area: item.area,
+                area_responsible: item.area_responsible || null,
                 auditor: item.auditor,
                 planned_date: item.planned_date,
                 frequency: item.frequency,
@@ -182,6 +300,83 @@ export const auditPlanService = {
     } catch (err: any) {
       console.error('Error saving audit plan item:', err);
       return { success: false, error: err.message || 'Error guardando auditoría planificada' };
+    }
+  },
+
+  /**
+   * Guarda múltiples auditorías en lote (importación por pegado de texto o archivo)
+   */
+  async bulkSavePlanItems(
+    newItems: AuditPlanItem[],
+    replaceExisting: boolean = false,
+    companyId?: string | null
+  ): Promise<{ success: boolean; count: number; error?: string }> {
+    try {
+      const targetCompany = companyId && companyId !== 'all' ? companyId : 'global';
+
+      // 1. Si se elige reemplazar, limpiar los registros de esta empresa en Supabase
+      if (replaceExisting && navigator.onLine) {
+        try {
+          let delQuery = supabase.from('audit_5s_plans').delete();
+          if (targetCompany !== 'global') {
+            delQuery = delQuery.eq('company_id', targetCompany);
+          } else {
+            delQuery = delQuery.is('company_id', null);
+          }
+          await delQuery;
+        } catch (e) {
+          console.warn('Error deleting existing plans in supabase:', e);
+        }
+      }
+
+      // 2. Insertar registros en lote en Supabase
+      if (navigator.onLine && newItems.length > 0) {
+        try {
+          const rowsToInsert = newItems.map((item) => ({
+            company_id: targetCompany !== 'global' ? targetCompany : null,
+            item_number: item.item_number || null,
+            planner_responsible: item.planner_responsible || null,
+            area: item.area,
+            area_responsible: item.area_responsible || null,
+            auditor: item.auditor || 'Sin asignar',
+            planned_date: item.planned_date,
+            frequency: item.frequency || 'Mensual',
+            status: item.status || 'pending',
+            completed_date: item.completed_date || null,
+            score: item.score || null,
+            notes: item.notes || null,
+            created_at: new Date().toISOString(),
+          }));
+
+          const { error } = await supabase.from('audit_5s_plans').insert(rowsToInsert);
+          if (error) {
+            console.warn('Supabase bulk insert warning:', error);
+          }
+        } catch (supErr) {
+          console.warn('Supabase bulk error:', supErr);
+        }
+      }
+
+      // 3. Sincronizar en localStorage
+      const stored = localStorage.getItem(STORAGE_PLAN_KEY);
+      let list: AuditPlanItem[] = stored ? JSON.parse(stored) : [];
+
+      if (replaceExisting) {
+        if (targetCompany !== 'global') {
+          list = list.filter((i) => i.company_id !== targetCompany && i.company_id !== 'global');
+        } else {
+          list = [];
+        }
+        list = [...newItems, ...list];
+      } else {
+        list = [...newItems, ...list];
+      }
+
+      localStorage.setItem(STORAGE_PLAN_KEY, JSON.stringify(list));
+      return { success: true, count: newItems.length };
+    } catch (err: any) {
+      console.error('Error in bulkSavePlanItems:', err);
+      return { success: false, count: 0, error: err.message || 'Error en carga masiva' };
     }
   },
 
