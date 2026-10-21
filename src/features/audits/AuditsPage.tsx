@@ -10,6 +10,7 @@ import Badge from '../../components/common/Badge';
 import AuditRadarChart from './components/AuditRadarChart';
 import AuditEvaluationModal from './components/AuditEvaluationModal';
 import AuditPlanManager from './components/AuditPlanManager';
+import AuditEditModal from './components/AuditEditModal';
 import { formatDate } from '../../lib/utils';
 import {
   ShieldCheck,
@@ -21,6 +22,7 @@ import {
   CalendarDays,
   User,
   Trash2,
+  Edit2,
   TrendingUp,
   Search,
   Building,
@@ -93,6 +95,8 @@ export const AuditsPage: React.FC = () => {
   const [audits, setAudits] = useState<Audit5S[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingAudit, setEditingAudit] = useState<Audit5S | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [scoreFilter, setScoreFilter] = useState<'all' | 'high' | 'mid' | 'low'>('all');
 
@@ -498,6 +502,45 @@ export const AuditsPage: React.FC = () => {
     return res;
   };
 
+  const handleOpenEdit = (audit: Audit5S) => {
+    setEditingAudit(audit);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (
+    auditId: string | number,
+    updates: {
+      area: string;
+      auditor: string;
+      audit_date: string;
+      total_score: number;
+    }
+  ) => {
+    const res = await auditService.updateAudit(auditId, updates);
+    if (res.success && res.data) {
+      toast.success(`Auditoría en "${updates.area}" actualizada con éxito`, { icon: '✨' });
+      setAudits((prev) =>
+        prev.map((a) => (String(a.id) === String(auditId) ? { ...a, ...res.data! } : a))
+      );
+      setIsEditModalOpen(false);
+      setEditingAudit(null);
+      loadAudits();
+      return { success: true };
+    } else {
+      toast.error(res.error || 'Error al actualizar auditoría');
+      return { success: false, error: res.error };
+    }
+  };
+
+  const availableAreas = useMemo(() => {
+    const set = new Set<string>();
+    audits.forEach((a) => {
+      const trimmed = (a.area || a.title || '').trim();
+      if (trimmed) set.add(trimmed);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [audits]);
+
   return (
     <div className="space-y-6 pb-12 font-sans">
       {/* High-Contrast Light Header */}
@@ -881,15 +924,26 @@ export const AuditsPage: React.FC = () => {
             </div>
 
             {selectedAudit && (
-              <button
-                type="button"
-                onClick={() => setSelectedAuditId(null)}
-                className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg transition-all shadow-2xs"
-                title="Volver a ver el promedio general de todas las auditorías"
-              >
-                <RotateCcw size={12} />
-                <span>Ver Promedio</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEdit(selectedAudit)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-all shadow-2xs"
+                  title="Editar datos de esta auditoría"
+                >
+                  <Edit2 size={12} className="text-slate-600" />
+                  <span>Editar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAuditId(null)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg transition-all shadow-2xs"
+                  title="Volver a ver el promedio general de todas las auditorías"
+                >
+                  <RotateCcw size={12} />
+                  <span>Ver Promedio</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -1080,10 +1134,20 @@ export const AuditsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <Badge variant={scoreVariant} size="md">
                         {normScore >= 80 ? 'Excelente' : normScore >= 60 ? 'Regular' : 'Crítico'}
                       </Badge>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(audit);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-cyan-700 rounded-lg hover:bg-cyan-50 transition-colors"
+                        title="Editar auditoría"
+                      >
+                        <Edit2 size={15} />
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1770,6 +1834,18 @@ export const AuditsPage: React.FC = () => {
           }
           loadAudits();
         }}
+      />
+
+      {/* Edit Audit Modal */}
+      <AuditEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingAudit(null);
+        }}
+        audit={editingAudit}
+        onSave={handleSaveEdit}
+        suggestedAreas={availableAreas}
       />
     </div>
   );

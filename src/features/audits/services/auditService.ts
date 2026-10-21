@@ -232,6 +232,72 @@ export const auditService = {
     }
   },
 
+  async updateAudit(
+    id: string | number,
+    updates: {
+      area?: string;
+      auditor?: string;
+      audit_date?: string;
+      total_score?: number;
+      title?: string;
+      status?: 'Realizada' | 'Pendiente' | 'No Realizada';
+    }
+  ): Promise<{ success: boolean; data?: Partial<Audit5S>; error?: string }> {
+    try {
+      const idStr = String(id);
+
+      // Offline check
+      if (idStr.startsWith('audit_off_')) {
+        await db.audits.update(idStr, updates as any);
+        return { success: true, data: { id: idStr, ...updates } as Partial<Audit5S> };
+      }
+
+      const payload: any = {};
+      if (updates.area !== undefined) {
+        payload.area = updates.area.trim();
+        payload.title = updates.title || `Auditoría 5S - ${updates.area.trim()}`;
+      }
+      if (updates.auditor !== undefined) payload.auditor = updates.auditor.trim();
+      if (updates.audit_date !== undefined) payload.audit_date = updates.audit_date;
+      if (updates.total_score !== undefined) payload.total_score = updates.total_score;
+      if (updates.status !== undefined) payload.status = updates.status;
+
+      const { data, error } = await supabase
+        .from('audit_5s')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Sincronizar con el plan de auditorías para mantener consistencia
+      try {
+        if (updates.area || updates.auditor || updates.total_score !== undefined) {
+          await auditPlanService.syncPlansWithAudits(data?.company_id);
+        }
+      } catch (planErr) {
+        console.warn('Could not re-sync plan after audit update:', planErr);
+      }
+
+      return {
+        success: true,
+        data: {
+          id: String(data.id),
+          area: data.area,
+          title: data.title,
+          auditor: data.auditor,
+          audit_date: data.audit_date,
+          total_score: Number(data.total_score),
+          status: data.status,
+        },
+      };
+    } catch (err: any) {
+      console.error('Error updating audit:', err);
+      return { success: false, error: err?.message || 'Error al actualizar auditoría' };
+    }
+  },
+
   async deleteAudit(id: string | number): Promise<{ success: boolean; error?: string }> {
     try {
       const idStr = String(id);
