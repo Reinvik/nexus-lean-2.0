@@ -527,6 +527,19 @@ export const FiveSCardsPage: React.FC = () => {
       const finalResponsible = cardData.responsible || assignedUser?.full_name || (assignedUser as any)?.name || assignedUser?.email || null;
       const finalDate = cardData.date || cardData.card_date || new Date().toISOString().split('T')[0];
 
+      // Sanitizar URLs de imágenes: evitar terminantemente payloads base64 (data:) o blob: en PostgreSQL
+      const sanitizeUrls = (urls?: (string | null)[] | null) => {
+        if (!urls || !Array.isArray(urls)) return [];
+        return urls.filter((u): u is string => {
+          if (!u || typeof u !== 'string') return false;
+          if (u.startsWith('data:') || u.startsWith('blob:')) return false;
+          return u.startsWith('http://') || u.startsWith('https://');
+        });
+      };
+
+      const cleanBeforeUrls = sanitizeUrls(cardData.image_urls);
+      const cleanAfterUrls = sanitizeUrls(cardData.after_image_urls);
+
       if (cardData.id) {
         // Update
         const { error } = await supabase
@@ -543,10 +556,10 @@ export const FiveSCardsPage: React.FC = () => {
             due_date: cardData.targetDate || cardData.due_date,
             close_date: cardData.solutionDate || cardData.close_date,
             closure_comment: cardData.proposedAction || cardData.closure_comment,
-            image_urls: cardData.image_urls || [],
-            image_url: cardData.image_urls?.[0] || null,
-            after_image_urls: cardData.after_image_urls || [],
-            after_image_url: cardData.after_image_urls?.[0] || null,
+            image_urls: cleanBeforeUrls,
+            image_url: cleanBeforeUrls[0] || null,
+            after_image_urls: cleanAfterUrls,
+            after_image_url: cleanAfterUrls[0] || null,
             date: finalDate,
             card_date: finalDate,
             updated_at: new Date().toISOString(),
@@ -569,10 +582,10 @@ export const FiveSCardsPage: React.FC = () => {
           due_date: cardData.targetDate || cardData.due_date,
           close_date: cardData.solutionDate || cardData.close_date,
           closure_comment: cardData.proposedAction || cardData.closure_comment,
-          image_urls: cardData.image_urls || [],
-          image_url: cardData.image_urls?.[0] || null,
-          after_image_urls: cardData.after_image_urls || [],
-          after_image_url: cardData.after_image_urls?.[0] || null,
+          image_urls: cleanBeforeUrls,
+          image_url: cleanBeforeUrls[0] || null,
+          after_image_urls: cleanAfterUrls,
+          after_image_url: cleanAfterUrls[0] || null,
           date: finalDate,
           card_date: finalDate,
           created_by: user?.id,

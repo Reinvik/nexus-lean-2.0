@@ -52,8 +52,8 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
 
   // Form State
   const [formData, setFormData] = useState<Partial<FiveSCard>>({});
-  const [imageBeforeFiles, setImageBeforeFiles] = useState<File[]>([]);
-  const [imageAfterFiles, setImageAfterFiles] = useState<File[]>([]);
+  const [beforeImages, setBeforeImages] = useState<{ id: string; url: string; file?: File }[]>([]);
+  const [afterImages, setAfterImages] = useState<{ id: string; url: string; file?: File }[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -66,6 +66,28 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
           initialResponsible = found.full_name || (found as any).name || found.email || '';
         }
       }
+
+      const cleanUrls = (urls?: (string | null)[]) => {
+        if (!urls || !Array.isArray(urls)) return [];
+        return urls.filter(
+          (u): u is string =>
+            Boolean(u && typeof u === 'string' && !u.startsWith('data:') && !u.startsWith('blob:'))
+        );
+      };
+
+      const existingBefore = cleanUrls(
+        card.image_urls || (card.image_url ? [card.image_url] : [])
+      );
+      const existingAfter = cleanUrls(
+        card.after_image_urls || (card.after_image_url ? [card.after_image_url] : [])
+      );
+
+      setBeforeImages(
+        existingBefore.map((u, i) => ({ id: `exist-b-${i}-${u.slice(-12)}`, url: u }))
+      );
+      setAfterImages(
+        existingAfter.map((u, i) => ({ id: `exist-a-${i}-${u.slice(-12)}`, url: u }))
+      );
 
       setFormData({
         ...card,
@@ -81,13 +103,14 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
         assigned_to: card.assigned_to || null,
         targetDate: card.targetDate || card.due_date || '',
         solutionDate: card.solutionDate || card.close_date || '',
-        image_urls: card.image_urls || (card.image_url ? [card.image_url] : []),
-        after_image_urls:
-          card.after_image_urls || (card.after_image_url ? [card.after_image_url] : []),
+        image_urls: existingBefore,
+        after_image_urls: existingAfter,
       });
     } else {
       // New card defaults
       const today = new Date().toISOString().split('T')[0];
+      setBeforeImages([]);
+      setAfterImages([]);
       setFormData({
         date: today,
         cardNumber: '',
@@ -105,8 +128,6 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
         after_image_urls: [],
       });
     }
-    setImageBeforeFiles([]);
-    setImageAfterFiles([]);
   }, [card, isOpen, users]);
 
   // Lista de usuarios ordenada alfabéticamente
@@ -141,14 +162,11 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
   const compressImage = async (
     file: File,
     maxDim = 1280,
-    quality = 0.82
-  ): Promise<{ file: File; fallbackDataUrl: string }> => {
+    quality = 0.8
+  ): Promise<File> => {
     return new Promise((resolve) => {
       if (!file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onloadend = () =>
-          resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
-        reader.readAsDataURL(file);
+        resolve(file);
         return;
       }
 
@@ -173,7 +191,6 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', quality);
           canvas.toBlob(
             (blob) => {
               if (blob) {
@@ -182,27 +199,21 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                   file.name.replace(/\.[^/.]+$/, '.jpg'),
                   { type: 'image/jpeg', lastModified: Date.now() }
                 );
-                resolve({ file: compressedFile, fallbackDataUrl: dataUrl });
+                resolve(compressedFile);
               } else {
-                resolve({ file, fallbackDataUrl: dataUrl });
+                resolve(file);
               }
             },
             'image/jpeg',
             quality
           );
         } else {
-          const reader = new FileReader();
-          reader.onloadend = () =>
-            resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
-          reader.readAsDataURL(file);
+          resolve(file);
         }
       };
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
-        const reader = new FileReader();
-        reader.onloadend = () =>
-          resolve({ file, fallbackDataUrl: (reader.result as string) || '' });
-        reader.readAsDataURL(file);
+        resolve(file);
       };
       img.src = objectUrl;
     });
@@ -210,29 +221,32 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
 
   // Upload an image to Supabase Storage con compresión
   const uploadFileToSupabase = async (rawFile: File): Promise<string | null> => {
-    let fileToUpload = rawFile;
-    let fallbackDataUrl = '';
-
     try {
-      // 1. Comprimir en cliente (de ~5MB a ~120KB)
-      const compressionResult = await compressImage(rawFile);
-      fileToUpload = compressionResult.file;
-      fallbackDataUrl = compressionResult.fallbackDataUrl;
-
-      const fileExt = fileToUpload.name ? fileToUpload.name.split('.').pop() : 'jpg';
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      const fileToUpload = await compressImage(rawFile);
+      const cleanName = rawFile.name ? rawFile.name.split('.').pop() || 'jpg' : 'jpg';
+      const fileExt = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt || 'jpg'}`;
       const companyPath = targetCompanyId || 'default';
       const filePath = `${companyPath}/${fileName}`;
+      const contentType = fileToUpload.type || 'image/jpeg';
 
       const { error: uploadError } = await supabase.storage
         .from('five-s-images')
-        .upload(filePath, fileToUpload, { cacheControl: '31536000', upsert: true });
+        .upload(filePath, fileToUpload, {
+          cacheControl: '31536000',
+          upsert: true,
+          contentType,
+        });
 
       if (uploadError) {
-        // Fallback to 'images' bucket
+        console.warn('Upload to five-s-images failed, trying images bucket:', uploadError);
         const { error: fallbackErr } = await supabase.storage
           .from('images')
-          .upload(`5s/${filePath}`, fileToUpload, { cacheControl: '31536000', upsert: true });
+          .upload(`5s/${filePath}`, fileToUpload, {
+            cacheControl: '31536000',
+            upsert: true,
+            contentType,
+          });
 
         if (!fallbackErr) {
           const { data } = supabase.storage.from('images').getPublicUrl(`5s/${filePath}`);
@@ -243,48 +257,54 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
 
       const { data } = supabase.storage.from('five-s-images').getPublicUrl(filePath);
       return data.publicUrl;
-    } catch (err) {
-      console.warn('Upload failed, using compressed fallback data URL:', err);
-      return fallbackDataUrl || null;
+    } catch (err: any) {
+      console.error('Error uploading image to storage:', err);
+      toast.error(`Error al subir imagen: ${err.message || 'Error de almacenamiento'}`);
+      return null;
     }
   };
 
   const handleAddImage = (type: 'before' | 'after', file: File) => {
-    const previewUrl = URL.createObjectURL(file);
     if (type === 'before') {
-      if ((formData.image_urls?.length || 0) >= 5) {
+      if (beforeImages.length >= 5) {
         toast.error('Máximo 5 imágenes de Antes');
         return;
       }
-      setFormData((prev) => ({
+      const previewUrl = URL.createObjectURL(file);
+      setBeforeImages((prev) => [
         ...prev,
-        image_urls: [...(prev.image_urls || []), previewUrl],
-      }));
-      setImageBeforeFiles((prev) => [...prev, file]);
+        { id: `new-b-${Date.now()}-${Math.random()}`, url: previewUrl, file },
+      ]);
     } else {
-      if ((formData.after_image_urls?.length || 0) >= 5) {
+      if (afterImages.length >= 5) {
         toast.error('Máximo 5 imágenes de Después');
         return;
       }
-      setFormData((prev) => ({
+      const previewUrl = URL.createObjectURL(file);
+      setAfterImages((prev) => [
         ...prev,
-        after_image_urls: [...(prev.after_image_urls || []), previewUrl],
-      }));
-      setImageAfterFiles((prev) => [...prev, file]);
+        { id: `new-a-${Date.now()}-${Math.random()}`, url: previewUrl, file },
+      ]);
     }
   };
 
   const handleRemoveImage = (type: 'before' | 'after', index: number) => {
     if (type === 'before') {
-      const urls = [...(formData.image_urls || [])];
-      urls.splice(index, 1);
-      setFormData((prev) => ({ ...prev, image_urls: urls }));
-      setImageBeforeFiles((prev) => prev.filter((_, i) => i !== index));
+      setBeforeImages((prev) => {
+        const item = prev[index];
+        if (item?.file && item.url.startsWith('blob:')) {
+          URL.revokeObjectURL(item.url);
+        }
+        return prev.filter((_, i) => i !== index);
+      });
     } else {
-      const urls = [...(formData.after_image_urls || [])];
-      urls.splice(index, 1);
-      setFormData((prev) => ({ ...prev, after_image_urls: urls }));
-      setImageAfterFiles((prev) => prev.filter((_, i) => i !== index));
+      setAfterImages((prev) => {
+        const item = prev[index];
+        if (item?.file && item.url.startsWith('blob:')) {
+          URL.revokeObjectURL(item.url);
+        }
+        return prev.filter((_, i) => i !== index);
+      });
     }
   };
 
@@ -298,27 +318,39 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
     const toastId = toast.loading('Guardando tarjeta 5S...');
 
     try {
-      // Upload new before images
-      let finalBeforeUrls = (formData.image_urls || []).filter(
-        (url) => !url.startsWith('blob:')
-      );
-      if (imageBeforeFiles.length > 0) {
-        const uploaded = await Promise.all(
-          imageBeforeFiles.map((file) => uploadFileToSupabase(file))
-        );
-        finalBeforeUrls = [...finalBeforeUrls, ...uploaded.filter(Boolean) as string[]];
-      }
+      // 1. Procesar imágenes Antes
+      const beforeUploadPromises = beforeImages.map(async (item) => {
+        if (item.file) {
+          return await uploadFileToSupabase(item.file);
+        }
+        if (item.url && !item.url.startsWith('blob:') && !item.url.startsWith('data:')) {
+          return item.url;
+        }
+        return null;
+      });
 
-      // Upload new after images
-      let finalAfterUrls = (formData.after_image_urls || []).filter(
-        (url) => !url.startsWith('blob:')
+      // 2. Procesar imágenes Después
+      const afterUploadPromises = afterImages.map(async (item) => {
+        if (item.file) {
+          return await uploadFileToSupabase(item.file);
+        }
+        if (item.url && !item.url.startsWith('blob:') && !item.url.startsWith('data:')) {
+          return item.url;
+        }
+        return null;
+      });
+
+      const [savedBeforeUrls, savedAfterUrls] = await Promise.all([
+        Promise.all(beforeUploadPromises),
+        Promise.all(afterUploadPromises),
+      ]);
+
+      const finalBeforeUrls = savedBeforeUrls.filter(
+        (u): u is string => Boolean(u && typeof u === 'string')
       );
-      if (imageAfterFiles.length > 0) {
-        const uploaded = await Promise.all(
-          imageAfterFiles.map((file) => uploadFileToSupabase(file))
-        );
-        finalAfterUrls = [...finalAfterUrls, ...uploaded.filter(Boolean) as string[]];
-      }
+      const finalAfterUrls = savedAfterUrls.filter(
+        (u): u is string => Boolean(u && typeof u === 'string')
+      );
 
       // If status is closed and no close date, set today
       let finalSolutionDate = formData.solutionDate || formData.close_date || null;
@@ -733,20 +765,20 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                   1. El Problema (Antes)
                 </span>
                 <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
-                  {formData.image_urls?.length || 0} / 5
+                  {beforeImages.length} / 5
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                {(formData.image_urls || []).map((url, idx) => (
+                {beforeImages.map((imgItem, idx) => (
                   <div
-                    key={idx}
+                    key={imgItem.id || idx}
                     className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group shadow-sm bg-white"
                   >
                     <img
-                      src={url}
+                      src={imgItem.url}
                       className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
-                      onClick={() => onZoomImage(url)}
+                      onClick={() => onZoomImage(imgItem.url)}
                       alt={`Antes ${idx + 1}`}
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
@@ -754,7 +786,7 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onZoomImage(url);
+                          onZoomImage(imgItem.url);
                         }}
                         className="p-1 bg-white/20 backdrop-blur-md text-white rounded hover:bg-white/40 transition-colors"
                         title="Ampliar"
@@ -776,7 +808,7 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                   </div>
                 ))}
 
-                {(formData.image_urls?.length || 0) < 5 && (
+                {beforeImages.length < 5 && (
                   <label className="aspect-square bg-white rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group">
                     <Plus
                       size={18}
@@ -792,6 +824,7 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                       onChange={(e) => {
                         if (e.target.files?.[0]) {
                           handleAddImage('before', e.target.files[0]);
+                          e.target.value = '';
                         }
                       }}
                     />
@@ -808,20 +841,20 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                   2. La Solución (Después)
                 </span>
                 <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
-                  {formData.after_image_urls?.length || 0} / 5
+                  {afterImages.length} / 5
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                {(formData.after_image_urls || []).map((url, idx) => (
+                {afterImages.map((imgItem, idx) => (
                   <div
-                    key={idx}
+                    key={imgItem.id || idx}
                     className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group shadow-sm bg-white"
                   >
                     <img
-                      src={url}
+                      src={imgItem.url}
                       className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
-                      onClick={() => onZoomImage(url)}
+                      onClick={() => onZoomImage(imgItem.url)}
                       alt={`Después ${idx + 1}`}
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
@@ -829,7 +862,7 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onZoomImage(url);
+                          onZoomImage(imgItem.url);
                         }}
                         className="p-1 bg-white/20 backdrop-blur-md text-white rounded hover:bg-white/40 transition-colors"
                         title="Ampliar"
@@ -851,7 +884,7 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                   </div>
                 ))}
 
-                {(formData.after_image_urls?.length || 0) < 5 && (
+                {afterImages.length < 5 && (
                   <label className="aspect-square bg-white rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center hover:border-emerald-500 hover:bg-emerald-50 transition-all cursor-pointer group">
                     <Plus
                       size={18}
@@ -867,6 +900,7 @@ export const FiveSCardModal: React.FC<FiveSCardModalProps> = ({
                       onChange={(e) => {
                         if (e.target.files?.[0]) {
                           handleAddImage('after', e.target.files[0]);
+                          e.target.value = '';
                         }
                       }}
                     />
