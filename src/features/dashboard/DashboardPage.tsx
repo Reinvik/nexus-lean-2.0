@@ -1131,9 +1131,8 @@ export const DashboardPage: React.FC = () => {
         {/* A3 KPI MONITORING */}
         {(user?.allowedModules || ['a3']).includes('a3') && (
           <div className="col-span-full">
-            <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2 font-sans">
+            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 font-sans">
               <Activity size={20} className="text-indigo-600" /> Monitoreo de KPIs
-              (Proyectos A3)
             </h3>
 
             {activeCharts.length > 0 ? (
@@ -1183,7 +1182,7 @@ export const DashboardPage: React.FC = () => {
                       {/* Header */}
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h5 className="font-bold text-slate-500 text-sm font-sans">
+                          <h5 className="font-extrabold text-slate-900 text-sm font-sans tracking-wide">
                             {chart.kpiName}
                           </h5>
                           <div className="mt-2 flex items-baseline gap-2">
@@ -1194,10 +1193,10 @@ export const DashboardPage: React.FC = () => {
                               {chart.isPercentage ? '%' : ''}
                             </span>
                           </div>
-                          <div className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                          <div className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-600">
                             <span
                               className={
-                                isPositive ? 'text-emerald-500' : 'text-rose-500'
+                                isPositive ? 'text-emerald-600' : 'text-rose-600'
                               }
                             >
                               {deltaString}
@@ -1268,18 +1267,18 @@ export const DashboardPage: React.FC = () => {
                       </div>
 
                       {/* Footer X-Axis Labels */}
-                      <div className="flex justify-between text-[10px] text-slate-300 font-bold uppercase tracking-wider mt-2 border-t border-slate-50 pt-2 font-sans">
-                        <span>
+                      <div className="flex justify-between text-[11px] text-slate-900 font-extrabold uppercase tracking-wider mt-2 border-t border-slate-200 pt-2 font-sans">
+                        <span className="text-slate-900 font-bold">
                           {chart.data[0]
                             ? new Date(chart.data[0].date).toLocaleDateString('es-ES', {
                                 month: 'short',
                               })
                             : ''}
                         </span>
-                        <span className="truncate max-w-[140px]">
+                        <span className="truncate max-w-[150px] text-slate-900 font-bold" title={chart.projectTitle}>
                           {chart.projectTitle}
                         </span>
-                        <span>
+                        <span className="text-slate-900 font-bold">
                           {chart.data[chart.data.length - 1]
                             ? new Date(
                                 chart.data[chart.data.length - 1].date
