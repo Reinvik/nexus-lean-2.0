@@ -113,6 +113,14 @@
     }, true);
 
     if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(function (reg) {
+        reg.update();
+      });
+      window.addEventListener('focus', function () {
+        navigator.serviceWorker.ready.then(function (reg) {
+          reg.update();
+        });
+      });
       navigator.serviceWorker.addEventListener('controllerchange', function () {
         console.log('[Nexus] Nuevo Service Worker activado. Sincronizando versión...');
         window.location.reload();
