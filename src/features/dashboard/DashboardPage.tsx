@@ -27,6 +27,7 @@ import {
   Maximize2,
   Minimize2,
   RefreshCw,
+  FileText,
 } from 'lucide-react';
 import StatCard from '../../components/common/StatCard';
 import LoadingScreen from '../../components/common/LoadingScreen';
@@ -877,7 +878,7 @@ export const DashboardPage: React.FC = () => {
               value={metrics.fiveS.total}
               subtitle={`${metrics.fiveS.rate}% Cumplimiento`}
               icon={<ClipboardList />}
-              variant="red"
+              variant="green"
               type="solid"
             />
           </div>
@@ -917,15 +918,15 @@ export const DashboardPage: React.FC = () => {
 
         {(user?.allowedModules || ['a3']).includes('a3') && (
           <div
-            onClick={() => handleDrillDown('high_impact', 'Quick Wins de Alto Impacto')}
+            onClick={() => handleDrillDown('a3', 'Listado de Planes A3')}
             className="cursor-pointer block transform transition-transform hover:scale-105 active:scale-95"
           >
             <StatCard
-              title="Impacto Alto"
-              value={metrics.quickWins.impact}
-              subtitle="Mejoras de Alto Impacto"
-              icon={<Target size={28} />}
-              variant="green"
+              title="Planes A3"
+              value={metrics.a3.total}
+              subtitle={`${metrics.a3.rate}% de Avance`}
+              icon={<FileText size={28} />}
+              variant="indigo"
               type="solid"
             />
           </div>
@@ -1060,7 +1061,7 @@ export const DashboardPage: React.FC = () => {
                     %
                   </span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 font-sans">
-                    Implementado
+                    Avance
                   </span>
                 </div>
               </div>
