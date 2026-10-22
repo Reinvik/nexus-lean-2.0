@@ -651,7 +651,8 @@ export const ResponsablesTaskDetailModals: React.FC<ResponsablesTaskDetailModals
     }
 
     const hasScoreOver4 = entries.some((e) => (e.score || 0) > 4);
-    const maxPerQuestion = hasScoreOver4 ? 5 : 4;
+    const hasExplicitZero = entries.some((e) => e.score === 0);
+    const maxPerQuestion = (hasScoreOver4 || !hasExplicitZero) ? 5 : 4;
     const res = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 };
     (['s1', 's2', 's3', 's4', 's5'] as const).forEach((sec) => {
       const secEntries = entries.filter((e) => e.section?.toLowerCase() === sec);

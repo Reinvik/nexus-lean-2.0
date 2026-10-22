@@ -231,7 +231,8 @@ export const AuditsPage: React.FC = () => {
   const getAuditRadarScores = useCallback((audit: Audit5S) => {
     if (audit.entries && audit.entries.length > 0) {
       const hasScoreOver4 = audit.entries.some((e) => (e.score || 0) > 4);
-      const maxPerQuestion = hasScoreOver4 ? 5 : 4;
+      const hasExplicitZero = audit.entries.some((e) => e.score === 0);
+      const maxPerQuestion = (hasScoreOver4 || !hasExplicitZero) ? 5 : 4;
 
       const sections: Array<'s1' | 's2' | 's3' | 's4' | 's5'> = ['s1', 's2', 's3', 's4', 's5'];
       const res: Record<'s1' | 's2' | 's3' | 's4' | 's5', number> = {
@@ -272,20 +273,19 @@ export const AuditsPage: React.FC = () => {
       return { s1: 75, s2: 60, s3: 80, s4: 65, s5: 70 }; // Baseline visual placeholder
     }
 
-    const hasAnyOver4 = dataset.some((a) =>
-      a.entries?.some((e) => (e.score || 0) > 4)
-    );
-    const maxPerQuestion = hasAnyOver4 ? 5 : 4;
-
     let s1 = 0, s2 = 0, s3 = 0, s4 = 0, s5 = 0;
     let counts = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 };
 
     dataset.forEach((a) => {
       if (a.entries && a.entries.length > 0) {
+        const auditHasOver4 = a.entries.some((e) => (e.score || 0) > 4);
+        const auditHasZero = a.entries.some((e) => e.score === 0);
+        const auditMax = (auditHasOver4 || !auditHasZero) ? 5 : 4;
+
         a.entries.forEach((e) => {
           const sec = e.section?.toLowerCase() as 's1' | 's2' | 's3' | 's4' | 's5';
           if (counts[sec] !== undefined) {
-            const maxPts = e.score > 4 ? 5 : maxPerQuestion;
+            const maxPts = e.score > 4 ? 5 : auditMax;
             const pct = Math.min(100, (e.score / maxPts) * 100);
             if (sec === 's1') s1 += pct;
             if (sec === 's2') s2 += pct;

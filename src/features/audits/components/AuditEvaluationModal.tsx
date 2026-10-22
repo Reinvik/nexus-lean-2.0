@@ -47,7 +47,7 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
     }
   }, [isOpen, initialArea, initialAuditor, user?.name]);
 
-  // Scores state: Map question key -> score (0 to 4)
+  // Scores state: Map question key -> score (1 to 5)
   const [answers, setAnswers] = useState<Record<string, { score: number; comment: string }>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -70,16 +70,41 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
     }));
   };
 
-  // Calculate current score
-  const totalQuestions = 15;
-  const maxPoints = totalQuestions * 4; // 60 points
+  // Calculate current score (escala 1 a 5)
+  const totalQuestions = SECTIONS.reduce((acc, s) => acc + AUDIT_CRITERIA[s].questions.length, 0);
+  const maxPoints = totalQuestions * 5; // 75 puntos máximos en escala 1 a 5
   const currentPoints = Object.values(answers).reduce((sum, a) => sum + (a.score || 0), 0);
-  const totalScorePercent = Math.round((currentPoints / maxPoints) * 100);
+  const totalScorePercent = maxPoints > 0 ? Math.round((currentPoints / maxPoints) * 100) : 0;
+  const answeredCount = Object.values(answers).filter((a) => (a.score || 0) >= 1).length;
+  const averageRating = answeredCount > 0 ? (currentPoints / answeredCount).toFixed(1) : '0.0';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!area.trim()) {
       setErrorMsg('Por favor especifica el área a auditar.');
+      return;
+    }
+
+    // Validar que todos los criterios tengan notas del 1 al 5
+    const unansweredList: string[] = [];
+    let firstMissingSec: SectionKey | null = null;
+
+    SECTIONS.forEach((s) => {
+      AUDIT_CRITERIA[s].questions.forEach((_, idx) => {
+        const key = `${s}_${idx}`;
+        const val = answers[key];
+        if (!val || !val.score || val.score < 1) {
+          unansweredList.push(`${s} - P${idx + 1}`);
+          if (!firstMissingSec) firstMissingSec = s;
+        }
+      });
+    });
+
+    if (unansweredList.length > 0) {
+      if (firstMissingSec) setActiveStep(firstMissingSec);
+      setErrorMsg(
+        `Debes calificar todos los criterios con nota del 1 al 5 antes de finalizar. Faltan ${unansweredList.length} pregunta(s) por responder (revisa la sección ${firstMissingSec}).`
+      );
       return;
     }
 
@@ -91,7 +116,7 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
       SECTIONS.forEach((s) => {
         AUDIT_CRITERIA[s].questions.forEach((q, idx) => {
           const key = `${s}_${idx}`;
-          const val = answers[key] || { score: 0, comment: '' };
+          const val = answers[key] || { score: 1, comment: '' };
           entries.push({
             section: s,
             question: q,
@@ -140,13 +165,13 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Ejecutar Auditoría 5S en Terreno"
-      subtitle="Evalúa cada criterio de 0 a 4 puntos con evidencias y comentarios"
+      subtitle="Evalúa cada criterio con notas del 1 al 5 con evidencias y comentarios"
       maxWidth="4xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {errorMsg && (
           <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle size={16} />
+            <AlertCircle size={16} className="shrink-0 text-rose-400" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -154,7 +179,7 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
         {/* Audit Meta (Area, Auditor, Date) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-slate-400 uppercase">
+            <label className="text-[11px] font-bold text-slate-200 uppercase">
               Área o Estación *
             </label>
             <input
@@ -162,32 +187,32 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
               required
               value={area}
               onChange={(e) => setArea(e.target.value)}
-              placeholder="Ej: Zona Embalaje, Taller"
-              className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-500"
+              placeholder="Ej: Zona Embalaje, Taller, Picking"
+              className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-slate-400 uppercase">
+            <label className="text-[11px] font-bold text-slate-200 uppercase">
               Auditor Responsable
             </label>
             <input
               type="text"
               value={auditorName}
               onChange={(e) => setAuditorName(e.target.value)}
-              className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-slate-400 uppercase">
+            <label className="text-[11px] font-bold text-slate-200 uppercase">
               Fecha de Ejecución
             </label>
             <input
               type="date"
               value={auditDate}
               onChange={(e) => setAuditDate(e.target.value)}
-              className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 [color-scheme:dark]"
             />
           </div>
         </div>
@@ -196,7 +221,7 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {SECTIONS.map((sec, idx) => {
             const isCompleted = AUDIT_CRITERIA[sec].questions.every(
-              (_, qIdx) => answers[`${sec}_${qIdx}`] !== undefined
+              (_, qIdx) => (answers[`${sec}_${qIdx}`]?.score || 0) >= 1
             );
             return (
               <button
@@ -241,37 +266,50 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
                   className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80 space-y-3"
                 >
                   <p className="text-xs font-semibold text-slate-200 leading-relaxed">
-                    <span className="text-cyan-400 mr-1.5">{qIdx + 1}.</span>
+                    <span className="text-cyan-400 mr-1.5 font-bold">{qIdx + 1}.</span>
                     {question}
                   </p>
 
-                  {/* Score buttons: 0, 1, 2, 3, 4 */}
+                  {/* Botones de Nota: 1, 2, 3, 4, 5 */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-300 mr-1">Calificación:</span>
-                    {[0, 1, 2, 3, 4].map((pts) => (
-                      <button
-                        type="button"
-                        key={pts}
-                        onClick={() => handleScoreChange(qIdx, pts)}
-                        className={`w-10 h-10 rounded-xl text-sm font-black transition-all border ${
-                          currentAnswer.score === pts
-                            ? pts === 4
-                              ? 'bg-emerald-600 text-white border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
-                              : pts >= 2
-                              ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.5)]'
-                              : 'bg-rose-600 text-white border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
-                            : 'bg-slate-800 text-white border-slate-600 hover:bg-slate-700'
-                        }`}
-                      >
-                        {pts}
-                      </button>
-                    ))}
-                    <span className="text-xs font-semibold text-slate-300 ml-2">
-                      {currentAnswer.score === 4
-                        ? 'Excelente / Cumple estándar'
-                        : currentAnswer.score === 0
-                        ? 'No implementado / Desviación grave'
-                        : 'En proceso / Observaciones'}
+                    <span className="text-xs font-bold text-slate-200 mr-1">Calificación:</span>
+                    {[1, 2, 3, 4, 5].map((pts) => {
+                      const isSelected = currentAnswer.score === pts;
+                      return (
+                        <button
+                          type="button"
+                          key={pts}
+                          onClick={() => handleScoreChange(qIdx, pts)}
+                          className={`w-10 h-10 rounded-xl text-sm font-black transition-all border ${
+                            isSelected
+                              ? pts === 5
+                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)] scale-105'
+                                : pts === 4
+                                ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.5)] scale-105'
+                                : pts === 3
+                                ? 'bg-sky-600 text-white border-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.5)] scale-105'
+                                : pts === 2
+                                ? 'bg-amber-600 text-white border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.5)] scale-105'
+                                : 'bg-rose-600 text-white border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.5)] scale-105'
+                              : 'bg-slate-800/90 text-slate-200 border-slate-700 hover:border-cyan-400 hover:bg-slate-700 hover:text-white'
+                          }`}
+                        >
+                          {pts}
+                        </button>
+                      );
+                    })}
+                    <span className="text-xs font-medium text-slate-300 ml-2">
+                      {currentAnswer.score === 5
+                        ? '5 - Excelente / Cumple estándar totalmente'
+                        : currentAnswer.score === 4
+                        ? '4 - Bueno / Cumple con observaciones menores'
+                        : currentAnswer.score === 3
+                        ? '3 - Regular / En proceso de implementación'
+                        : currentAnswer.score === 2
+                        ? '2 - Deficiente / Oportunidad de mejora'
+                        : currentAnswer.score === 1
+                        ? '1 - Muy deficiente / No implementado'
+                        : 'Selecciona una nota del 1 al 5'}
                     </span>
                   </div>
 
@@ -281,7 +319,7 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
                     value={currentAnswer.comment}
                     onChange={(e) => handleCommentChange(qIdx, e.target.value)}
                     placeholder="Observaciones o hallazgos específicos (opcional)..."
-                    className="w-full px-3 py-1.5 bg-slate-950/80 border border-slate-800 rounded-lg text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-1.5 bg-slate-950/80 border border-slate-700 rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
                   />
                 </div>
               );
@@ -300,9 +338,14 @@ export const AuditEvaluationModal: React.FC<AuditEvaluationModalProps> = ({
                 {totalScorePercent}%
               </span>
             </div>
-            <span className="text-xs text-slate-400 hidden sm:inline">
-              ({currentPoints} de {maxPoints} puntos totales)
-            </span>
+            <div className="text-xs text-slate-400 hidden sm:block">
+              <div className="font-bold text-slate-200">
+                Nota Promedio: <span className="text-cyan-300 font-mono">{averageRating} / 5</span>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                {answeredCount} de {totalQuestions} criterios evaluados ({currentPoints} de {maxPoints} pts)
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
