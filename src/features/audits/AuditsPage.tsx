@@ -893,289 +893,6 @@ export const AuditsPage: React.FC = () => {
             />
           </div>
 
-      {/* Main Grid: Radar chart on left, Recent Audits list on right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Radar Chart Card */}
-        <div className="lg:col-span-5 p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 font-sans flex items-center gap-2">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                    selectedAudit ? 'bg-emerald-500 ring-2 ring-emerald-200 animate-pulse' : 'bg-cyan-500'
-                  }`}
-                />
-                <span>
-                  {selectedAudit
-                    ? `Radar 5S (SOLES): ${selectedAudit.area || selectedAudit.title}`
-                    : 'Radar de Madurez 5S (SOLES)'}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                {selectedAudit ? (
-                  <span>
-                    Auditado el {formatDate(selectedAudit.audit_date)} por{' '}
-                    <strong className="text-slate-700">{selectedAudit.auditor}</strong> ({getNormalizedScore(selectedAudit.total_score)}%)
-                  </span>
-                ) : (
-                  'Madurez en las 5 dimensiones: Seleccionar, Ordenar, Limpiar, Estandarizar y Sostener'
-                )}
-              </p>
-            </div>
-
-            {selectedAudit && (
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleOpenEdit(selectedAudit)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-all shadow-2xs"
-                  title="Editar datos de esta auditoría"
-                >
-                  <Edit2 size={12} className="text-slate-600" />
-                  <span>Editar</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedAuditId(null)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg transition-all shadow-2xs"
-                  title="Volver a ver el promedio general de todas las auditorías"
-                >
-                  <RotateCcw size={12} />
-                  <span>Ver Promedio</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          <AuditRadarChart scores={activeRadarScores} />
-
-          <div className="grid grid-cols-5 gap-2 pt-4 border-t border-slate-100 text-center">
-            <div className="bg-cyan-50/80 border border-cyan-200 rounded-xl p-2">
-              <span className="text-[10px] font-black text-cyan-800 uppercase tracking-wider block">S</span>
-              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Seleccionar</span>
-              <span className="text-[9px] text-slate-500 block">1S Seiri</span>
-              <span className="text-sm font-black text-cyan-900 mt-1 block">{activeRadarScores.s1}%</span>
-            </div>
-            <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-2">
-              <span className="text-[10px] font-black text-indigo-800 uppercase tracking-wider block">O</span>
-              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Ordenar</span>
-              <span className="text-[9px] text-slate-500 block">2S Seiton</span>
-              <span className="text-sm font-black text-indigo-900 mt-1 block">{activeRadarScores.s2}%</span>
-            </div>
-            <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2">
-              <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">L</span>
-              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Limpiar</span>
-              <span className="text-[9px] text-slate-500 block">3S Seiso</span>
-              <span className="text-sm font-black text-emerald-900 mt-1 block">{activeRadarScores.s3}%</span>
-            </div>
-            <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-2">
-              <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">E</span>
-              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Estandarizar</span>
-              <span className="text-[9px] text-slate-500 block">4S Seiketsu</span>
-              <span className="text-sm font-black text-amber-900 mt-1 block">{activeRadarScores.s4}%</span>
-            </div>
-            <div className="bg-rose-50/80 border border-rose-200 rounded-xl p-2">
-              <span className="text-[10px] font-black text-rose-800 uppercase tracking-wider block">S</span>
-              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Sostener</span>
-              <span className="text-[9px] text-slate-500 block">5S Shitsuke</span>
-              <span className="text-sm font-black text-rose-900 mt-1 block">{activeRadarScores.s5}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Audits List */}
-        <div className="lg:col-span-7 p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 font-sans">
-                Historial de Auditorías
-              </h3>
-              <p className="text-xs text-slate-600 mt-0.5 font-medium">
-                {selectedAudit
-                  ? `Mostrando en radar: "${selectedAudit.area || selectedAudit.title}". Haz clic para desmarcar.`
-                  : 'Últimas revisiones ejecutadas en planta • Haz clic en una auditoría para ver su radar'}
-              </p>
-            </div>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-900 border border-cyan-300 font-mono w-fit">
-              {filteredAudits.length} de {audits.length} {audits.length === 1 ? 'registro' : 'registros'}
-            </span>
-          </div>
-
-          {/* Search & Filter Toolbar */}
-          <div className="flex flex-col sm:flex-row items-center gap-2.5">
-            <div className="relative flex-1 w-full">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por área o auditor..."
-                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-cyan-600 focus:bg-white transition-colors"
-              />
-            </div>
-            <div className="flex items-center gap-1.5 w-full sm:w-auto shrink-0">
-              <button
-                type="button"
-                onClick={() => setScoreFilter('all')}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
-                  scoreFilter === 'all'
-                    ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200'
-                }`}
-              >
-                Todos
-              </button>
-              <button
-                type="button"
-                onClick={() => setScoreFilter('high')}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
-                  scoreFilter === 'high'
-                    ? 'bg-emerald-700 text-white border-emerald-700'
-                    : 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
-                }`}
-              >
-                ≥ 80%
-              </button>
-              <button
-                type="button"
-                onClick={() => setScoreFilter('mid')}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
-                  scoreFilter === 'mid'
-                    ? 'bg-amber-600 text-white border-amber-600'
-                    : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
-                }`}
-              >
-                60-79%
-              </button>
-              <button
-                type="button"
-                onClick={() => setScoreFilter('low')}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
-                  scoreFilter === 'low'
-                    ? 'bg-rose-700 text-white border-rose-700'
-                    : 'bg-rose-100 text-rose-900 border-rose-300 hover:bg-rose-200'
-                }`}
-              >
-                &lt; 60%
-              </button>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((n) => (
-                <div
-                  key={n}
-                  className="h-16 rounded-xl bg-slate-100/80 border border-slate-200 animate-pulse"
-                />
-              ))}
-            </div>
-          ) : filteredAudits.length > 0 ? (
-            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-              {filteredAudits.map((audit) => {
-                const isSelected = selectedAuditId === audit.id;
-                const normScore = getNormalizedScore(audit.total_score);
-                const isOriginal5Scale =
-                  (audit.total_score || 0) <= 5 && (audit.total_score || 0) > 0;
-                const scoreVariant =
-                  normScore >= 80 ? 'emerald' : normScore >= 60 ? 'amber' : 'rose';
-
-                return (
-                  <div
-                    key={audit.id}
-                    onClick={() => {
-                      setSelectedAuditId((prev) => (prev === audit.id ? null : audit.id));
-                    }}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none group ${
-                      isSelected
-                        ? 'bg-cyan-50/90 border-cyan-600 ring-2 ring-cyan-500/30 shadow-sm'
-                        : 'bg-slate-50 border-slate-200 hover:border-cyan-500 hover:bg-white hover:shadow-xs'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div
-                        className={`w-14 h-12 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 border shadow-2xs ${
-                          normScore >= 80
-                            ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
-                            : normScore >= 60
-                            ? 'bg-amber-100 text-amber-950 border-amber-300'
-                            : 'bg-rose-100 text-rose-950 border-rose-300'
-                        }`}
-                      >
-                        <span className="text-sm font-black leading-tight">{normScore}%</span>
-                        {isOriginal5Scale && (
-                          <span className="text-[10px] font-bold text-slate-800 font-mono leading-tight">
-                            {Number(audit.total_score).toFixed(1)}/5
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-slate-900 truncate group-hover:text-cyan-800 transition-colors">
-                            {audit.area || audit.title || 'Área General'}
-                          </p>
-                          {isSelected && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-cyan-700 text-white shrink-0">
-                              <Eye size={10} /> En Radar
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-700 mt-0.5">
-                          <span className="flex items-center gap-1 truncate font-semibold">
-                            <User size={12} className="text-slate-600" />
-                            <span>{audit.auditor || 'Sin auditor'}</span>
-                          </span>
-                          <span className="flex items-center gap-1 font-semibold">
-                            <Calendar size={12} className="text-slate-600" />
-                            <span>{formatDate(audit.audit_date)}</span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge variant={scoreVariant} size="md">
-                        {normScore >= 80 ? 'Excelente' : normScore >= 60 ? 'Regular' : 'Crítico'}
-                      </Badge>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenEdit(audit);
-                        }}
-                        className="p-1.5 text-slate-500 hover:text-cyan-700 rounded-lg hover:bg-cyan-50 transition-colors"
-                        title="Editar auditoría"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(audit.id);
-                        }}
-                        className="p-1.5 text-slate-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 transition-colors"
-                        title="Eliminar registro"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="py-12 text-center space-y-2">
-              <ShieldCheck size={36} className="mx-auto text-slate-300" />
-              <p className="text-xs font-medium text-slate-500">
-                {searchQuery || scoreFilter !== 'all'
-                  ? 'No se encontraron auditorías con los filtros aplicados.'
-                  : 'No hay auditorías registradas todavía.'}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* ============================================================== */}
       {/* Analytics Section: Top Auditores, Top Áreas, Tendencia & Madurez */}
       {/* ============================================================== */}
@@ -1795,6 +1512,291 @@ export const AuditsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Main Grid: Radar chart on left, Recent Audits list on right */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Radar Chart Card */}
+        <div className="lg:col-span-5 p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 font-sans flex items-center gap-2">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                    selectedAudit ? 'bg-emerald-500 ring-2 ring-emerald-200 animate-pulse' : 'bg-cyan-500'
+                  }`}
+                />
+                <span>
+                  {selectedAudit
+                    ? `Radar 5S (SOLES): ${selectedAudit.area || selectedAudit.title}`
+                    : 'Radar de Madurez 5S (SOLES)'}
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                {selectedAudit ? (
+                  <span>
+                    Auditado el {formatDate(selectedAudit.audit_date)} por{' '}
+                    <strong className="text-slate-700">{selectedAudit.auditor}</strong> ({getNormalizedScore(selectedAudit.total_score)}%)
+                  </span>
+                ) : (
+                  'Madurez en las 5 dimensiones: Seleccionar, Ordenar, Limpiar, Estandarizar y Sostener'
+                )}
+              </p>
+            </div>
+
+            {selectedAudit && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEdit(selectedAudit)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-all shadow-2xs"
+                  title="Editar datos de esta auditoría"
+                >
+                  <Edit2 size={12} className="text-slate-600" />
+                  <span>Editar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAuditId(null)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg transition-all shadow-2xs"
+                  title="Volver a ver el promedio general de todas las auditorías"
+                >
+                  <RotateCcw size={12} />
+                  <span>Ver Promedio</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <AuditRadarChart scores={activeRadarScores} />
+
+          <div className="grid grid-cols-5 gap-2 pt-4 border-t border-slate-100 text-center">
+            <div className="bg-cyan-50/80 border border-cyan-200 rounded-xl p-2">
+              <span className="text-[10px] font-black text-cyan-800 uppercase tracking-wider block">S</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Seleccionar</span>
+              <span className="text-[9px] text-slate-500 block">1S Seiri</span>
+              <span className="text-sm font-black text-cyan-900 mt-1 block">{activeRadarScores.s1}%</span>
+            </div>
+            <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-2">
+              <span className="text-[10px] font-black text-indigo-800 uppercase tracking-wider block">O</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Ordenar</span>
+              <span className="text-[9px] text-slate-500 block">2S Seiton</span>
+              <span className="text-sm font-black text-indigo-900 mt-1 block">{activeRadarScores.s2}%</span>
+            </div>
+            <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2">
+              <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">L</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Limpiar</span>
+              <span className="text-[9px] text-slate-500 block">3S Seiso</span>
+              <span className="text-sm font-black text-emerald-900 mt-1 block">{activeRadarScores.s3}%</span>
+            </div>
+            <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-2">
+              <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">E</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Estandarizar</span>
+              <span className="text-[9px] text-slate-500 block">4S Seiketsu</span>
+              <span className="text-sm font-black text-amber-900 mt-1 block">{activeRadarScores.s4}%</span>
+            </div>
+            <div className="bg-rose-50/80 border border-rose-200 rounded-xl p-2">
+              <span className="text-[10px] font-black text-rose-800 uppercase tracking-wider block">S</span>
+              <span className="text-[11px] text-slate-800 block font-bold leading-tight">Sostener</span>
+              <span className="text-[9px] text-slate-500 block">5S Shitsuke</span>
+              <span className="text-sm font-black text-rose-900 mt-1 block">{activeRadarScores.s5}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Audits List */}
+        <div className="lg:col-span-7 p-6 rounded-2xl bg-white border border-slate-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 font-sans">
+                Historial de Auditorías
+              </h3>
+              <p className="text-xs text-slate-600 mt-0.5 font-medium">
+                {selectedAudit
+                  ? `Mostrando en radar: "${selectedAudit.area || selectedAudit.title}". Haz clic para desmarcar.`
+                  : 'Últimas revisiones ejecutadas en planta • Haz clic en una auditoría para ver su radar'}
+              </p>
+            </div>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-900 border border-cyan-300 font-mono w-fit">
+              {filteredAudits.length} de {audits.length} {audits.length === 1 ? 'registro' : 'registros'}
+            </span>
+          </div>
+
+          {/* Search & Filter Toolbar */}
+          <div className="flex flex-col sm:flex-row items-center gap-2.5">
+            <div className="relative flex-1 w-full">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por área o auditor..."
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-cyan-600 focus:bg-white transition-colors"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 w-full sm:w-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setScoreFilter('all')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
+                  scoreFilter === 'all'
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                onClick={() => setScoreFilter('high')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
+                  scoreFilter === 'high'
+                    ? 'bg-emerald-700 text-white border-emerald-700'
+                    : 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
+                }`}
+              >
+                ≥ 80%
+              </button>
+              <button
+                type="button"
+                onClick={() => setScoreFilter('mid')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
+                  scoreFilter === 'mid'
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                }`}
+              >
+                60-79%
+              </button>
+              <button
+                type="button"
+                onClick={() => setScoreFilter('low')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
+                  scoreFilter === 'low'
+                    ? 'bg-rose-700 text-white border-rose-700'
+                    : 'bg-rose-100 text-rose-900 border-rose-300 hover:bg-rose-200'
+                }`}
+              >
+                &lt; 60%
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((n) => (
+                <div
+                  key={n}
+                  className="h-16 rounded-xl bg-slate-100/80 border border-slate-200 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : filteredAudits.length > 0 ? (
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+              {filteredAudits.map((audit) => {
+                const isSelected = selectedAuditId === audit.id;
+                const normScore = getNormalizedScore(audit.total_score);
+                const isOriginal5Scale =
+                  (audit.total_score || 0) <= 5 && (audit.total_score || 0) > 0;
+                const scoreVariant =
+                  normScore >= 80 ? 'emerald' : normScore >= 60 ? 'amber' : 'rose';
+
+                return (
+                  <div
+                    key={audit.id}
+                    onClick={() => {
+                      setSelectedAuditId((prev) => (prev === audit.id ? null : audit.id));
+                    }}
+                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none group ${
+                      isSelected
+                        ? 'bg-cyan-50/90 border-cyan-600 ring-2 ring-cyan-500/30 shadow-sm'
+                        : 'bg-slate-50 border-slate-200 hover:border-cyan-500 hover:bg-white hover:shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div
+                        className={`w-14 h-12 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 border shadow-2xs ${
+                          normScore >= 80
+                            ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                            : normScore >= 60
+                            ? 'bg-amber-100 text-amber-950 border-amber-300'
+                            : 'bg-rose-100 text-rose-950 border-rose-300'
+                        }`}
+                      >
+                        <span className="text-sm font-black leading-tight">{normScore}%</span>
+                        {isOriginal5Scale && (
+                          <span className="text-[10px] font-bold text-slate-800 font-mono leading-tight">
+                            {Number(audit.total_score).toFixed(1)}/5
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900 truncate group-hover:text-cyan-800 transition-colors">
+                            {audit.area || audit.title || 'Área General'}
+                          </p>
+                          {isSelected && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-cyan-700 text-white shrink-0">
+                              <Eye size={10} /> En Radar
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-700 mt-0.5">
+                          <span className="flex items-center gap-1 truncate font-semibold">
+                            <User size={12} className="text-slate-600" />
+                            <span>{audit.auditor || 'Sin auditor'}</span>
+                          </span>
+                          <span className="flex items-center gap-1 font-semibold">
+                            <Calendar size={12} className="text-slate-600" />
+                            <span>{formatDate(audit.audit_date)}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge variant={scoreVariant} size="md">
+                        {normScore >= 80 ? 'Excelente' : normScore >= 60 ? 'Regular' : 'Crítico'}
+                      </Badge>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(audit);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-cyan-700 rounded-lg hover:bg-cyan-50 transition-colors"
+                        title="Editar auditoría"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(audit.id);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 transition-colors"
+                        title="Eliminar registro"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-12 text-center space-y-2">
+              <ShieldCheck size={36} className="mx-auto text-slate-300" />
+              <p className="text-xs font-medium text-slate-500">
+                {searchQuery || scoreFilter !== 'all'
+                  ? 'No se encontraron auditorías con los filtros aplicados.'
+                  : 'No hay auditorías registradas todavía.'}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+
       </>
       )}
 
