@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import HeaderWithFilter from '../../components/common/HeaderWithFilter';
@@ -97,19 +98,30 @@ interface ActivityItem {
   [key: string]: any;
 }
 
+const getNormalizedScore = (score: number | null | undefined): number => {
+  if (!score || score <= 0) return 0;
+  if (score <= 5) {
+    return Math.min(100, Math.round((score / 5) * 100));
+  }
+  return Math.min(100, Math.round(score));
+};
+
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, globalFilterCompanyId, activeSchema, refreshData } = useAuth();
   const [data, setData] = useState<{
     fiveS: DashboardCardItem[];
     quickWins: DashboardQuickWinItem[];
     vsms: DashboardVsmItem[];
     a3: DashboardA3Item[];
+    audits: any[];
     recentActivity: ActivityItem[];
   }>({
     fiveS: [],
     quickWins: [],
     vsms: [],
     a3: [],
+    audits: [],
     recentActivity: [],
   });
 
@@ -236,14 +248,13 @@ export const DashboardPage: React.FC = () => {
             .limit(8)
         );
 
-        const recentAuditsPromise = applyFilter(
+        const auditsPromise = applyFilter(
           supabase
             .from('audit_5s')
-            .select('id, total_score, audit_date, area, auditor, company_id, title, status')
+            .select('id, total_score, audit_date, area, auditor, company_id, title, status, created_at')
             .neq('status', 'programada')
             .neq('status', 'scheduled')
             .order('audit_date', { ascending: false })
-            .limit(6)
         );
 
         const profilesPromise = supabase
@@ -259,7 +270,7 @@ export const DashboardPage: React.FC = () => {
             recentFiveSPromise,
             recentQwPromise,
             profilesPromise,
-            recentAuditsPromise,
+            auditsPromise,
           ]);
 
         // Process 5S Cards
@@ -452,7 +463,7 @@ export const DashboardPage: React.FC = () => {
 
         if (allowedModules.includes('auditoria_5s')) {
           recentActivity.push(
-            ...(auditsRes.data || []).map((i: any) => {
+            ...(auditsRes.data || []).slice(0, 6).map((i: any) => {
               const scoreNum = Number(i.total_score) || 0;
               const normalizedPct =
                 scoreNum <= 5 && scoreNum > 0
@@ -478,11 +489,24 @@ export const DashboardPage: React.FC = () => {
           .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime())
           .slice(0, 15);
 
+        const rawAudits = (auditsRes.data || []).map((a: any) => ({
+          id: a.id,
+          total_score: a.total_score,
+          audit_date: a.audit_date,
+          area: a.area,
+          auditor: a.auditor,
+          companyId: a.company_id,
+          title: a.title,
+          status: a.status,
+          created_at: a.created_at,
+        }));
+
         setData({
           fiveS,
           quickWins,
           vsms,
           a3: a3List,
+          audits: rawAudits,
           recentActivity: sortedActivity,
         });
       } catch (err: any) {
@@ -502,7 +526,7 @@ export const DashboardPage: React.FC = () => {
 
   // 2. Filter Data
   const filteredData = useMemo(() => {
-    if (!user) return { fiveS: [], quickWins: [], vsms: [], a3: [] };
+    if (!user) return { fiveS: [], quickWins: [], vsms: [], a3: [], audits: [] };
 
     const isAdmin = user.isGlobalAdmin;
     const targetCompanyId = isAdmin ? globalFilterCompanyId : user.companyId;
@@ -518,6 +542,7 @@ export const DashboardPage: React.FC = () => {
       quickWins: filterByCompany(data.quickWins),
       vsms: filterByCompany(data.vsms),
       a3: filterByCompany(data.a3),
+      audits: filterByCompany(data.audits),
     };
   }, [user, globalFilterCompanyId, data]);
 
@@ -646,6 +671,62 @@ export const DashboardPage: React.FC = () => {
       },
     };
   }, [filteredData]);
+
+  // 3b. Nivel de Madurez Operacional (Auditorías 5S)
+  const auditMaturity = useMemo(() => {
+    const auditsList = filteredData.audits || [];
+    let high = 0;
+    let mid = 0;
+    let low = 0;
+    let totalScoreSum = 0;
+
+    const validAudits = auditsList.filter((a: any) => {
+      const score = Number(a.total_score) || 0;
+      return score > 0 || (a.area && a.area.trim() !== '');
+    });
+
+    validAudits.forEach((a: any) => {
+      const score = getNormalizedScore(a.total_score);
+      totalScoreSum += score;
+      if (score >= 80) high++;
+      else if (score >= 60) mid++;
+      else low++;
+    });
+
+    const total = validAudits.length;
+    const avgScore = total > 0 ? Math.round(totalScoreSum / total) : 0;
+
+    return {
+      total,
+      avgScore,
+      high,
+      mid,
+      low,
+      distribution: [
+        {
+          name: 'Excelente (≥ 80%)',
+          key: 'high',
+          value: high,
+          percentage: total > 0 ? Math.round((high / total) * 100) : 0,
+          color: '#10b981',
+        },
+        {
+          name: 'Regular (60 - 79%)',
+          key: 'mid',
+          value: mid,
+          percentage: total > 0 ? Math.round((mid / total) * 100) : 0,
+          color: '#f59e0b',
+        },
+        {
+          name: 'Crítico (< 60%)',
+          key: 'low',
+          value: low,
+          percentage: total > 0 ? Math.round((low / total) * 100) : 0,
+          color: '#ef4444',
+        },
+      ],
+    };
+  }, [filteredData.audits]);
 
   // 4. Drill Down Handler
   const handleDrillDown = (type: string, title: string) => {
@@ -1288,152 +1369,129 @@ export const DashboardPage: React.FC = () => {
           </div>
         )}
 
-        {/* 5S AVERAGE CLOSURE TIME */}
-        {(user?.allowedModules || ['5s']).includes('5s') && (
+        {/* NIVEL DE MADUREZ OPERACIONAL (AUDITORÍAS 5S) */}
+        {(user?.allowedModules || ['5s', 'auditoria_5s']).some((m) =>
+          ['5s', 'audits', 'auditoria_5s'].includes(m)
+        ) && (
           <div
-            onClick={() =>
-              handleDrillDown('5s_closed', 'Tarjetas 5S Cerradas (Tiempos)')
-            }
-            className="bg-white p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all border border-slate-100 lg:col-span-1 flex flex-col h-[340px] relative overflow-hidden cursor-pointer"
+            onClick={() => navigate('/auditorias-5s')}
+            className="bg-white p-5 sm:p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all border border-slate-100 lg:col-span-1 flex flex-col justify-between h-[340px] cursor-pointer group"
           >
-            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2 z-10 flex items-center gap-2 font-sans">
-              <CheckCircle size={16} className="text-emerald-500" /> Promedio de
-              Cierre de Tarjetas 5S
-            </h4>
-
-            <div
-              className="w-full h-56 relative z-10 -mt-2"
-              style={{ minWidth: '200px', minHeight: '200px' }}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  {/* Background Full Circle */}
-                  <Pie
-                    data={[{ value: 1 }]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={90}
-                    startAngle={90}
-                    endAngle={-270}
-                    fill="#ecfdf5"
-                    stroke="none"
-                    dataKey="value"
-                    isAnimationActive={false}
-                  />
-
-                  {/* Average Value Bar */}
-                  <Pie
-                    data={[
-                      { value: parseFloat(metrics.fiveS.avgClosure || '0') },
-                      {
-                        value: Math.max(
-                          0,
-                          parseFloat(metrics.fiveS.maxClosure || '1') -
-                            parseFloat(metrics.fiveS.avgClosure || '0')
-                        ),
-                      },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={90}
-                    startAngle={90}
-                    endAngle={-270}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    <Cell fill="#10b981" />
-                    <Cell fill="transparent" />
-                  </Pie>
-
-                  {/* Minimum Value Marker */}
-                  {parseFloat(metrics.fiveS.minClosure || '0') > 0 &&
-                    parseFloat(metrics.fiveS.maxClosure || '0') > 0 && (
-                      <Pie
-                        data={[
-                          { value: parseFloat(metrics.fiveS.minClosure || '0') },
-                          {
-                            value:
-                              parseFloat(metrics.fiveS.maxClosure || '1') * 0.02,
-                          },
-                          {
-                            value: Math.max(
-                              0,
-                              parseFloat(metrics.fiveS.maxClosure || '1') -
-                                parseFloat(metrics.fiveS.minClosure || '0') -
-                                parseFloat(metrics.fiveS.maxClosure || '1') * 0.02
-                            ),
-                          },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={65}
-                        outerRadius={95}
-                        startAngle={90}
-                        endAngle={-270}
-                        dataKey="value"
-                        stroke="none"
-                        isAnimationActive={false}
-                      >
-                        <Cell fill="transparent" />
-                        <Cell fill="#065f46" />
-                        <Cell fill="transparent" />
-                      </Pie>
-                    )}
-                </PieChart>
-              </ResponsiveContainer>
-
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div className="relative">
-                  <span className="text-6xl font-black text-slate-700 tracking-tight font-sans">
-                    {metrics.fiveS.avgClosure}
-                  </span>
-                  {parseFloat(metrics.fiveS.avgClosure) > 15 && (
-                    <span className="absolute -top-2 -right-4 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                    </span>
-                  )}
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
+                    <Activity size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 font-sans leading-tight truncate">
+                      Nivel de Madurez Operacional
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium font-sans truncate">
+                      Distribución semafórica de auditorías en planta
+                    </p>
+                  </div>
                 </div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1 font-sans">
-                  Días Promedio
+                <span className="text-[10px] font-bold text-slate-400 group-hover:text-cyan-600 transition-colors shrink-0 hidden sm:inline font-sans">
+                  Ver módulo →
                 </span>
               </div>
+
+              {/* Donut Semafórico */}
+              {auditMaturity.total > 0 ? (
+                <div className="relative h-40 flex items-center justify-center my-0.5">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={auditMaturity.distribution.filter((d) => d.value > 0)}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={48}
+                        outerRadius={68}
+                        paddingAngle={4}
+                        dataKey="value"
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                      >
+                        {auditMaturity.distribution
+                          .filter((d) => d.value > 0)
+                          .map((entry, index) => (
+                            <Cell
+                              key={`audit-mature-${index}`}
+                              fill={entry.color}
+                            />
+                          ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: any, name: any) => [
+                          `${value} auditorías (${
+                            auditMaturity.total > 0
+                              ? Math.round(
+                                  (Number(value) / auditMaturity.total) * 100
+                                )
+                              : 0
+                          }%)`,
+                          name,
+                        ]}
+                        contentStyle={{
+                          borderRadius: '0.75rem',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.06)',
+                          fontSize: '11px',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                  {/* Centro del Donut */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none font-sans">
+                      Promedio
+                    </span>
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight my-0.5 font-sans">
+                      {auditMaturity.avgScore}%
+                    </span>
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-wider leading-none font-sans">
+                      Planta
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 text-center text-slate-400 text-xs font-medium font-sans">
+                  Sin auditorías registradas
+                </div>
+              )}
             </div>
 
-            <div className="absolute -bottom-8 -right-8 opacity-[0.03] rotate-12 pointer-events-none">
-              <CheckCircle size={180} className="text-emerald-500" />
-            </div>
-
-            {/* Comparison Footer */}
-            <div className="z-10 mt-auto w-full px-2">
-              <div className="flex justify-between items-center bg-slate-50 rounded-lg p-2 text-xs font-sans">
-                <div className="text-center">
-                  <p className="text-slate-400 font-bold uppercase text-[10px]">
-                    Más Rápida
-                  </p>
-                  <p className="text-emerald-600 font-bold">
-                    {metrics.fiveS.minClosure}{' '}
-                    <span className="text-[10px]">días</span>
-                  </p>
+            {/* 3 Tarjetas Inferiores: Excelente / Regular / Crítico */}
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 font-sans">
+              {auditMaturity.distribution.map((tier) => (
+                <div
+                  key={tier.key}
+                  className={`p-2 rounded-xl border text-center transition-all ${
+                    tier.key === 'high'
+                      ? 'bg-emerald-50/70 text-emerald-950 border-emerald-200/90'
+                      : tier.key === 'mid'
+                      ? 'bg-amber-50/70 text-amber-950 border-amber-200/90'
+                      : 'bg-rose-50/70 text-rose-950 border-rose-200/90'
+                  }`}
+                >
+                  <span className="text-[10px] font-bold uppercase block truncate text-slate-900">
+                    {tier.key === 'high'
+                      ? 'Excelente'
+                      : tier.key === 'mid'
+                      ? 'Regular'
+                      : 'Crítico'}
+                  </span>
+                  <span className="text-xl font-black block mt-0.5 font-sans text-slate-900">
+                    {tier.value}
+                  </span>
+                  <span className="text-[10px] font-semibold block text-slate-600 font-sans">
+                    {tier.percentage}%
+                  </span>
                 </div>
-                <div className="h-6 w-px bg-slate-200"></div>
-                <div className="text-center">
-                  <p className="text-slate-400 font-bold uppercase text-[10px]">
-                    Más Lenta
-                  </p>
-                  <p className="text-rose-600 font-bold">
-                    {metrics.fiveS.maxClosure}{' '}
-                    <span className="text-[10px]">días</span>
-                  </p>
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium text-center mt-2 leading-tight font-sans">
-                Tiempo promedio desde la detección
-                <br />
-                hasta el cierre del hallazgo.
-              </p>
+              ))}
             </div>
           </div>
         )}
