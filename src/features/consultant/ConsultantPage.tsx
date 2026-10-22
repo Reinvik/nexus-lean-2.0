@@ -107,8 +107,6 @@ export const ConsultantPage: React.FC = () => {
               .select(
                 'id, total_score, audit_date, date, created_at, company_id, area, title, auditor, status, entries:audit_5s_entries(section, question, score, comment)'
               )
-              .neq('status', 'programada')
-              .neq('status', 'scheduled')
               .order('audit_date', { ascending: false })
           ),
           applyFilter(
@@ -137,7 +135,10 @@ export const ConsultantPage: React.FC = () => {
           quickWins: qwRes.data || [],
           vsms: vsmRes.data || [],
           a3: a3Res.data || [],
-          auditLogs: auditRes.data || [],
+          auditLogs: (auditRes.data || []).filter((d: any) => {
+            const st = (d.status || '').toLowerCase().trim();
+            return st !== 'programada' && st !== 'scheduled';
+          }),
           gembaWalks: gembaWalksRes.data || [],
           gembaFindings: gembaFindingsRes.data || [],
           profiles: profilesRes.data || [],

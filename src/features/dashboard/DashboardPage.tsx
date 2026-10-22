@@ -98,12 +98,14 @@ interface ActivityItem {
   [key: string]: any;
 }
 
-const getNormalizedScore = (score: number | null | undefined): number => {
-  if (!score || score <= 0) return 0;
-  if (score <= 5) {
-    return Math.min(100, Math.round((score / 5) * 100));
+const getNormalizedScore = (score: any): number => {
+  if (score === null || score === undefined || score === '') return 0;
+  const num = typeof score === 'number' ? score : parseFloat(String(score));
+  if (isNaN(num) || num <= 0) return 0;
+  if (num <= 5) {
+    return Math.min(100, Math.round((num / 5) * 100));
   }
-  return Math.min(100, Math.round(score));
+  return Math.min(100, Math.round(num));
 };
 
 export const DashboardPage: React.FC = () => {
@@ -252,8 +254,6 @@ export const DashboardPage: React.FC = () => {
           supabase
             .from('audit_5s')
             .select('id, total_score, audit_date, area, auditor, company_id, title, status, created_at')
-            .neq('status', 'programada')
-            .neq('status', 'scheduled')
             .order('audit_date', { ascending: false })
         );
 
@@ -461,14 +461,16 @@ export const DashboardPage: React.FC = () => {
           );
         }
 
+        // Safely filter scheduled items in JS so NULL status records are never dropped
+        const validAuditsRaw = (auditsRes.data || []).filter((d: any) => {
+          const st = (d.status || '').toLowerCase().trim();
+          return st !== 'programada' && st !== 'scheduled';
+        });
+
         if (allowedModules.includes('auditoria_5s')) {
           recentActivity.push(
-            ...(auditsRes.data || []).slice(0, 6).map((i: any) => {
-              const scoreNum = Number(i.total_score) || 0;
-              const normalizedPct =
-                scoreNum <= 5 && scoreNum > 0
-                  ? Math.min(100, Math.round((scoreNum / 5) * 100))
-                  : Math.min(100, Math.round(scoreNum));
+            ...validAuditsRaw.slice(0, 6).map((i: any) => {
+              const normalizedPct = getNormalizedScore(i.total_score);
 
               return {
                 id: i.id,
@@ -489,7 +491,7 @@ export const DashboardPage: React.FC = () => {
           .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime())
           .slice(0, 15);
 
-        const rawAudits = (auditsRes.data || []).map((a: any) => ({
+        const rawAudits = validAuditsRaw.map((a: any) => ({
           id: a.id,
           total_score: a.total_score,
           audit_date: a.audit_date,
@@ -1469,13 +1471,18 @@ export const DashboardPage: React.FC = () => {
               {auditMaturity.distribution.map((tier) => (
                 <div
                   key={tier.key}
-                  className={`p-2 rounded-xl border text-center transition-all ${
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/app/audits?scoreFilter=${tier.key}`);
+                  }}
+                  className={`p-2 rounded-xl border text-center transition-all cursor-pointer hover:scale-[1.02] hover:shadow-xs active:scale-[0.98] ${
                     tier.key === 'high'
-                      ? 'bg-emerald-50/70 text-emerald-950 border-emerald-200/90'
+                      ? 'bg-emerald-50/70 text-emerald-950 border-emerald-200/90 hover:bg-emerald-100/80'
                       : tier.key === 'mid'
-                      ? 'bg-amber-50/70 text-amber-950 border-amber-200/90'
-                      : 'bg-rose-50/70 text-rose-950 border-rose-200/90'
+                      ? 'bg-amber-50/70 text-amber-950 border-amber-200/90 hover:bg-amber-100/80'
+                      : 'bg-rose-50/70 text-rose-950 border-rose-200/90 hover:bg-rose-100/80'
                   }`}
+                  title={`Ver auditorías con nivel ${tier.name}`}
                 >
                   <span className="text-[10px] font-bold uppercase block truncate text-slate-900">
                     {tier.key === 'high'

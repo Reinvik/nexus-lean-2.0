@@ -58,12 +58,14 @@ import {
 import toast from 'react-hot-toast';
 
 // Helper to normalize scores whether stored on a 0-5 scale or 0-100 percentage
-export const getNormalizedScore = (score: number | null | undefined): number => {
-  if (!score || score <= 0) return 0;
-  if (score <= 5) {
-    return Math.min(100, Math.round((score / 5) * 100));
+export const getNormalizedScore = (score: any): number => {
+  if (score === null || score === undefined || score === '') return 0;
+  const num = typeof score === 'number' ? score : parseFloat(String(score));
+  if (isNaN(num) || num <= 0) return 0;
+  if (num <= 5) {
+    return Math.min(100, Math.round((num / 5) * 100));
   }
-  return Math.min(100, Math.round(score));
+  return Math.min(100, Math.round(num));
 };
 
 export const AuditsPage: React.FC = () => {
@@ -73,6 +75,8 @@ export const AuditsPage: React.FC = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') === 'plan' ? 'plan' : 'metrics';
+  const paramScoreFilter = searchParams.get('scoreFilter') as 'all' | 'high' | 'mid' | 'low' | null;
+  const initialScoreFilter = ['high', 'mid', 'low'].includes(paramScoreFilter || '') ? paramScoreFilter! : 'all';
 
   // Sub-tab Navigation: 'metrics' (Resultados & Gráficos) vs 'plan' (Plan de Auditoría)
   const [activeTab, setActiveTab] = useState<'metrics' | 'plan'>(initialTab);
@@ -84,6 +88,11 @@ export const AuditsPage: React.FC = () => {
       setActiveTab('plan');
     } else if (tabParam === 'metrics') {
       setActiveTab('metrics');
+    }
+
+    const sf = searchParams.get('scoreFilter') as 'all' | 'high' | 'mid' | 'low' | null;
+    if (sf && ['all', 'high', 'mid', 'low'].includes(sf)) {
+      setScoreFilter(sf);
     }
   }, [searchParams]);
 
@@ -98,7 +107,7 @@ export const AuditsPage: React.FC = () => {
   const [editingAudit, setEditingAudit] = useState<Audit5S | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [scoreFilter, setScoreFilter] = useState<'all' | 'high' | 'mid' | 'low'>('all');
+  const [scoreFilter, setScoreFilter] = useState<'all' | 'high' | 'mid' | 'low'>(initialScoreFilter);
 
   // Filtros Temporales para Gráficos y Métricas: Fecha, Año, Mes
   const [filterYear, setFilterYear] = useState<string>('all');
