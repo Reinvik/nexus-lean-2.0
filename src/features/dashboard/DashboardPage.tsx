@@ -866,8 +866,8 @@ export const DashboardPage: React.FC = () => {
         </button>
       </HeaderWithFilter>
 
-      {/* Top Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Top Stats Row: 3 Columnas perfectamente alineadas con los gráficos inferiores */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {(user?.allowedModules || ['5s']).includes('5s') && (
           <div
             onClick={() => handleDrillDown('5s', 'Listado de Tarjetas 5S')}
@@ -895,22 +895,6 @@ export const DashboardPage: React.FC = () => {
               subtitle={`de ${metrics.quickWins.total} Ideas Registradas`}
               icon={<Zap size={28} />}
               variant="yellow"
-              type="solid"
-            />
-          </div>
-        )}
-
-        {(user?.allowedModules || ['vsm']).includes('vsm') && (
-          <div
-            onClick={() => handleDrillDown('vsm', 'Listado de Mapas VSM')}
-            className="cursor-pointer block transform transition-transform hover:scale-105 active:scale-95"
-          >
-            <StatCard
-              title="Mapas VSM"
-              value={metrics.vsm.count}
-              subtitle="Flujos de Valor Analizados"
-              icon={<Activity size={28} />}
-              variant="purple"
               type="solid"
             />
           </div>
