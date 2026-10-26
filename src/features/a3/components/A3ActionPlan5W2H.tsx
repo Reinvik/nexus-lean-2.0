@@ -30,10 +30,12 @@ import {
   Camera,
   ZoomIn,
   Image as ImageIcon,
+  ClipboardList,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { A3ActionPlanItem, A3Subtask, A3PlanGroup } from '../../../types';
 import A3ActionModal from './A3ActionModal';
+import A3BatchImportModal from './A3BatchImportModal';
 import { ImageLightbox } from '../../../components/common/ImageLightbox';
 import { generateLeanSubtasks } from '../../../services/geminiService';
 import { COMMON_SUBTASK_VERBS, formatWithActionVerb, startsWithActionVerb } from '../utils/leanActionVerbs';
@@ -116,6 +118,7 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
   const [editingAction, setEditingAction] = useState<A3ActionPlanItem | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
@@ -414,6 +417,15 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
     onChange(next);
   };
 
+  // Batch import actions from pasted table or text
+  const handleBatchImport = (newItems: A3ActionPlanItem[], targetPlanId: string) => {
+    const nextActions = [...normalizedActions, ...newItems];
+    onChange(nextActions);
+    if (activePlanId !== 'all' && activePlanId !== targetPlanId) {
+      setActivePlanId(targetPlanId);
+    }
+  };
+
   // Create new plan group
   const handleCreateNewPlan = (e: React.FormEvent) => {
     e.preventDefault();
@@ -611,6 +623,15 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
                 )}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setIsBatchImportOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl shadow-xs transition-all shrink-0 cursor-pointer"
+              title="Pegar tabla de Excel o acta de reunión para generar acciones en lote"
+            >
+              <ClipboardList size={15} className="text-cyan-600" />
+              <span>Pegar / Importar Plan</span>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -1332,6 +1353,16 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Importación / Pegado Masivo de Planes de Acción */}
+      <A3BatchImportModal
+        isOpen={isBatchImportOpen}
+        onClose={() => setIsBatchImportOpen(false)}
+        onImport={handleBatchImport}
+        planGroups={planGroups}
+        activePlanId={activePlanId}
+        onUpdatePlansMeta={onUpdatePlansMeta}
+      />
 
       {/* Lightbox para ampliar pruebas de trabajo realizado */}
       <ImageLightbox imageUrl={lightboxImage} onClose={() => setLightboxImage(null)} />

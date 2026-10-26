@@ -1756,6 +1756,75 @@ REGLAS OBLIGATORIAS:
   }
 };
 
+/**
+ * Extrae planes de acción estructurados (Tarea, Responsable, Plazo/Fecha, Justificación)
+ * a partir de texto libre, transcripción de reuniones o actas.
+ */
+export const extractActionPlanFromText = async (
+  rawText: string,
+  context?: {
+    projectTitle?: string;
+  },
+  apiKey?: string
+): Promise<Array<{ what: string; who: string; when: string; why?: string }>> => {
+  if (!rawText || !rawText.trim()) return [];
+
+  const prompt = `
+Eres un analista experto en Lean Manufacturing y gestión de proyectos Toyota A3.
+Tu misión es extraer todas las tareas o planes de acción acordados del siguiente texto (acta de reunión, transcripción o notas):
+
+TEXTO A ANALIZAR:
+"""
+${rawText.trim()}
+"""
+${context?.projectTitle ? `Contexto del Proyecto A3: "${context.projectTitle}"` : ''}
+
+INSTRUCCIONES DE EXTRACCIÓN:
+1. Extrae cada tarea o compromiso concreto como un elemento de la lista.
+2. Identifica:
+   - "what": Qué se va a hacer (tarea concreta, preferiblemente iniciando con verbo en infinitivo).
+   - "who": Quién es el responsable (nombre de persona o cargo). Si no se especifica, colocar "Por asignar".
+   - "when": Cuándo / Fecha límite o plazo. Conserva fechas como "2026-10-29", "Permanente", "Dos semanas", etc. Si no se indica, colocar "Por definir".
+   - "why": Propósito o justificación del acuerdo (breve).
+3. Responde ÚNICAMENTE en formato JSON plano como un array:
+[
+  {
+    "what": "Subir las fotografías de la auditoría de la bodega de insumos",
+    "who": "Nataly",
+    "when": "2026-10-22",
+    "why": "Acuerdo de reunión A3"
+  }
+]
+`;
+
+  const effectiveKey = getEffectiveApiKey(apiKey);
+
+  try {
+    const data = await callGeminiAPI(effectiveKey, {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+      },
+    });
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = extractAndParseJSON(resultText);
+
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((item: any) => ({
+        what: item.what || item.task || item.activity || item.tarea || 'Tarea sin especificar',
+        who: item.who || item.responsible || item.responsable || 'Por asignar',
+        when: item.when || item.date || item.plazo || 'Por definir',
+        why: item.why || item.justification || 'Acuerdo de reunión A3',
+      }));
+    }
+  } catch (err) {
+    console.warn('[Gemini] Falló extracción con IA, recurriendo a análisis sintáctico local:', err);
+  }
+
+  return [];
+};
+
 export default {
   prepareCompanyData,
   generateAIInsight,
@@ -1765,4 +1834,5 @@ export default {
   improveLeanActionWording,
   improveA3FieldText,
   generateLeanSubtasks,
+  extractActionPlanFromText,
 };
