@@ -22,6 +22,7 @@ import {
   Minimize2,
   LayoutGrid,
   Monitor,
+  Tv,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -48,6 +49,7 @@ import A3CountermeasureManager from './components/A3CountermeasureManager';
 import A3ActionPlan5W2H from './components/A3ActionPlan5W2H';
 import A3BoardView from './components/A3BoardView';
 import A3ShareModal from './components/A3ShareModal';
+import A3TvPresentationModal from './components/A3TvPresentationModal';
 import RichTextEditor from '../../components/common/RichTextEditor';
 import { improveA3FieldText, type A3FieldType } from '../../services/geminiService';
 
@@ -91,6 +93,7 @@ export const A3Page: React.FC = () => {
   const [isBoardMode, setIsBoardMode] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isTvModeOpen, setIsTvModeOpen] = useState(false);
   const fullScreenContainerRef = useRef<HTMLDivElement>(null);
 
   // Target Company ID
@@ -1160,6 +1163,17 @@ export const A3Page: React.FC = () => {
                 <span>{isBoardMode ? 'Modo Editor' : 'Modo Lámina A3'}</span>
               </button>
 
+              {/* TV Projection Mode Button */}
+              <button
+                type="button"
+                onClick={() => setIsTvModeOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white shadow-sm cursor-pointer shrink-0"
+                title="Modo Proyección TV / Sala con zoom y escala ajustable"
+              >
+                <Tv size={14} />
+                <span>Modo TV / Sala</span>
+              </button>
+
               {/* Fullscreen Button */}
               <button
                 type="button"
@@ -1623,6 +1637,7 @@ export const A3Page: React.FC = () => {
                     isSaving={isAutoSaving}
                     lastSavedAt={lastSavedAt}
                     onShareEmail={() => setIsShareModalOpen(true)}
+                    onOpenTvMode={() => setIsTvModeOpen(true)}
                     projectGoal={selectedA3.goal}
                     rootCause={selectedA3.rootCause || selectedA3.root_cause}
                   />
@@ -1768,6 +1783,20 @@ export const A3Page: React.FC = () => {
                   user?.companyId)
             )?.name
           }
+        />
+      )}
+
+      {/* TV / Sala Presentation Modal */}
+      {selectedA3 && (
+        <A3TvPresentationModal
+          isOpen={isTvModeOpen}
+          onClose={() => setIsTvModeOpen(false)}
+          a3={selectedA3}
+          onUpdate={updateA3Field}
+          users={profiles.map((p) => ({
+            name: p.full_name || p.email || 'Usuario',
+            email: p.email || undefined,
+          }))}
         />
       )}
     </div>

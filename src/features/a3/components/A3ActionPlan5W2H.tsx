@@ -31,6 +31,7 @@ import {
   ZoomIn,
   Image as ImageIcon,
   ClipboardList,
+  Tv,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { A3ActionPlanItem, A3Subtask, A3PlanGroup } from '../../../types';
@@ -50,6 +51,7 @@ interface A3ActionPlan5W2HProps {
   isSaving?: boolean;
   lastSavedAt?: Date | null;
   onShareEmail?: () => void;
+  onOpenTvMode?: () => void;
   projectGoal?: string;
   rootCause?: string;
 }
@@ -70,6 +72,7 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
   isSaving = false,
   lastSavedAt = null,
   onShareEmail,
+  onOpenTvMode,
   projectGoal,
   rootCause,
 }) => {
@@ -621,6 +624,17 @@ export const A3ActionPlan5W2H: React.FC<A3ActionPlan5W2HProps> = ({
                     {metrics.total - metrics.completed}
                   </span>
                 )}
+              </button>
+            )}
+            {onOpenTvMode && (
+              <button
+                type="button"
+                onClick={onOpenTvMode}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-slate-900 to-indigo-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all shrink-0 cursor-pointer"
+                title="Modo Proyección TV / Sala con zoom y escala ajustable"
+              >
+                <Tv size={15} className="text-cyan-400" />
+                <span>Modo TV</span>
               </button>
             )}
             <button
