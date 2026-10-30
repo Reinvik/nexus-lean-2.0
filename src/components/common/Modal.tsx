@@ -9,7 +9,11 @@ export interface ModalProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | 'full';
+  variant?: 'dark' | 'light';
+  className?: string;
+  bodyClassName?: string;
+  headerClassName?: string;
 }
 
 const MAX_WIDTHS = {
@@ -19,6 +23,7 @@ const MAX_WIDTHS = {
   xl: 'max-w-xl',
   '2xl': 'max-w-2xl',
   '4xl': 'max-w-4xl',
+  full: 'max-w-5xl',
 };
 
 export const Modal: React.FC<ModalProps> = ({
@@ -28,6 +33,10 @@ export const Modal: React.FC<ModalProps> = ({
   subtitle,
   children,
   maxWidth = 'lg',
+  variant = 'dark',
+  className,
+  bodyClassName,
+  headerClassName,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -42,36 +51,77 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
       />
 
       {/* Modal Dialog */}
       <div
         className={cn(
-          'relative w-full overflow-hidden rounded-2xl bg-[#0B1120] border border-slate-800 shadow-2xl z-10 my-8 animate-in fade-in zoom-in-95 duration-200',
-          MAX_WIDTHS[maxWidth]
+          'relative w-full overflow-hidden rounded-t-2xl sm:rounded-2xl z-10 sm:my-6 my-0 flex flex-col max-h-[96dvh] sm:max-h-[90vh] animate-in fade-in zoom-in-95 duration-200',
+          variant === 'light'
+            ? 'bg-white border-t sm:border border-slate-200 text-slate-900 shadow-2xl'
+            : 'bg-[#0B1120] border-t sm:border border-slate-800 text-white shadow-2xl',
+          MAX_WIDTHS[maxWidth],
+          className
         )}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-slate-800/80 bg-slate-900/40">
+        <div
+          className={cn(
+            'flex items-start justify-between p-4 sm:p-5 border-b shrink-0',
+            variant === 'light'
+              ? 'bg-slate-50/95 border-slate-200 text-slate-900'
+              : 'bg-slate-900/40 border-slate-800/80 text-white',
+            headerClassName
+          )}
+        >
           <div>
-            <h3 className="text-lg font-bold text-white font-sans">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+            <h3
+              className={cn(
+                'text-base sm:text-lg font-bold font-sans',
+                variant === 'light' ? 'text-slate-900' : 'text-white'
+              )}
+            >
+              {title}
+            </h3>
+            {subtitle && (
+              <p
+                className={cn(
+                  'text-xs mt-0.5',
+                  variant === 'light' ? 'text-slate-600 font-medium' : 'text-slate-400'
+                )}
+              >
+                {subtitle}
+              </p>
+            )}
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800/80 transition-colors"
+            className={cn(
+              'p-2 rounded-xl transition-colors',
+              variant === 'light'
+                ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/70'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            )}
+            title="Cerrar ventana"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 max-h-[calc(85vh-130px)] overflow-y-auto">
+        <div
+          className={cn(
+            'p-4 sm:p-6 overflow-y-auto flex-1',
+            variant === 'light' ? 'bg-slate-50/40' : 'bg-transparent',
+            bodyClassName
+          )}
+        >
           {children}
         </div>
       </div>
